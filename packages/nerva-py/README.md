@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/otomus/nerva/actions"><img src="https://img.shields.io/github/actions/workflow/status/otomus/nerva/ci.yml?branch=main" alt="CI"></a>
   <a href="https://pypi.org/project/nerva/"><img src="https://img.shields.io/pypi/v/nerva" alt="PyPI"></a>
-  <a href="https://www.npmjs.com/package/nerva"><img src="https://img.shields.io/npm/v/nerva" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@otomus/nerva"><img src="https://img.shields.io/npm/v/@otomus/nerva" alt="npm"></a>
   <a href="https://github.com/otomus/nerva/blob/main/LICENSE"><img src="https://img.shields.io/github/license/otomus/nerva" alt="License"></a>
 </p>
 
@@ -85,7 +85,7 @@ asyncio.run(main())
 ## Quick Start — TypeScript
 
 ```bash
-npm install nerva
+npm install @otomus/nerva
 ```
 
 ```typescript
@@ -97,7 +97,7 @@ import {
   TieredMemory,
   InMemoryRegistry,
   NoopPolicyEngine,
-} from "nerva";
+} from "@otomus/nerva";
 
 // Define a simple handler
 async function greetHandler(input: string, ctx: ExecContext): Promise<string> {
@@ -172,8 +172,8 @@ async def chat(req: ChatRequest, ctx: ExecContext = Depends(get_nerva_ctx)):
 
 ```typescript
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { Orchestrator } from 'nerva';
-import { NervaCtx } from 'nerva/contrib/nestjs';
+import { Orchestrator } from '@otomus/nerva';
+import { NervaCtx } from '@otomus/nerva/contrib/nestjs';
 
 @Controller('chat')
 export class ChatController {
@@ -191,8 +191,8 @@ export class ChatController {
 
 ```typescript
 import express from 'express';
-import { Orchestrator } from 'nerva';
-import { nervaMiddleware } from 'nerva/contrib/express';
+import { Orchestrator } from '@otomus/nerva';
+import { nervaMiddleware } from '@otomus/nerva/contrib/express';
 
 const app = express();
 app.use(nervaMiddleware(config));
@@ -218,12 +218,13 @@ app.post('/chat', async (req, res) => {
 | Package | Description | |
 |---------|-------------|---|
 | [`nerva-py`](./packages/nerva-py) | Python implementation (3.11+) | [![PyPI](https://img.shields.io/pypi/v/nerva)](https://pypi.org/project/nerva/) |
-| [`nerva-js`](./packages/nerva-js) | TypeScript implementation (Node 20+) | [![npm](https://img.shields.io/npm/v/nerva)](https://www.npmjs.com/package/nerva) |
-| [`nerva-cli`](./packages/nerva-cli) | CLI for scaffolding and code generation | [![npm](https://img.shields.io/npm/v/nerva-cli)](https://www.npmjs.com/package/nerva-cli) |
+| [`@otomus/nerva`](./packages/nerva-js) | TypeScript implementation (Node 20+) | [![npm](https://img.shields.io/npm/v/@otomus/nerva)](https://www.npmjs.com/package/@otomus/nerva) |
+| [`@otomus/nerva-cli`](./packages/nerva-cli) | CLI for scaffolding and code generation | [![npm](https://img.shields.io/npm/v/@otomus/nerva-cli)](https://www.npmjs.com/package/@otomus/nerva-cli) |
 
 ## Links
 
-- [Documentation](https://nerva.dev)
+- [Documentation](https://otomus.github.io/nerva/docs/)
+- [Homepage](https://otomus.github.io/nerva/)
 - [Examples](./examples/)
 - [TypeSpec Schema](./spec/)
 - [Contributing](./CONTRIBUTING.md)
