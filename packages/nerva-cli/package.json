@@ -1,6 +1,6 @@
 {
-  "name": "nerva-cli",
-  "version": "0.1.0",
+  "name": "@otomus/nerva-cli",
+  "version": "0.1.1",
   "description": "CLI for the Nerva agent runtime",
   "type": "module",
   "bin": {
@@ -22,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/oronm/nerva",
+    "url": "https://github.com/otomus/nerva",
     "directory": "packages/nerva-cli"
   },
   "files": [

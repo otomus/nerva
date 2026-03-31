@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nerva"
-version = "0.1.0"
+version = "0.1.1"
 description = "The programmable nerve runtime for AI agents"
 readme = "README.md"
 license = {text = "MIT"}
@@ -25,9 +25,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/oronm/nerva"
-Repository = "https://github.com/oronm/nerva"
-Issues = "https://github.com/oronm/nerva/issues"
+Homepage = "https://github.com/otomus/nerva"
+Repository = "https://github.com/otomus/nerva"
+Issues = "https://github.com/otomus/nerva/issues"
 
 [project.optional-dependencies]
 native = ["nerva-core"]

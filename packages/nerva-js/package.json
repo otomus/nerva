@@ -1,6 +1,6 @@
 {
-  "name": "nerva",
-  "version": "0.1.0",
+  "name": "@otomus/nerva",
+  "version": "0.1.1",
   "description": "The programmable nerve runtime for AI agents",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,7 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/oronm/nerva",
+    "url": "https://github.com/otomus/nerva",
     "directory": "packages/nerva-js"
   },
   "files": [
