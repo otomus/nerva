@@ -257,7 +257,7 @@ export class ContainerRuntime implements AgentRuntime {
         resolvePromise({ stdout: "", timedOut: false, exitCode: -1 });
       });
 
-      child.on("close", (code) => {
+      child.on("close", (code: number | null) => {
         clearTimeout(timer);
         if (timedOut) {
           resolvePromise({ stdout: "", timedOut: true, exitCode: -1 });

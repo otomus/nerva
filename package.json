@@ -1,7 +1,0 @@
-{
-  "private": true,
-  "workspaces": [
-    "packages/nerva-js",
-    "packages/nerva-cli"
-  ]
-}

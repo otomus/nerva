@@ -298,7 +298,7 @@ export class SubprocessRuntime implements AgentRuntime {
         resolvePromise({ stdout: "", exitCode: -1 });
       });
 
-      child.on("close", (code) => {
+      child.on("close", (code: number | null) => {
         clearTimeout(timer);
         if (timedOut) {
           ctx.addEvent("subprocess.timeout", { handler });

@@ -12,7 +12,6 @@ import {
   ExecContext,
   createPermissions,
   type Permissions,
-  type PermissionsInit,
 } from "../context.js";
 import type { Orchestrator } from "../orchestrator.js";
 

@@ -12,9 +12,8 @@ import {
   ExecContext,
   createPermissions,
   type Permissions,
-  type Scope,
 } from "../context.js";
-import type { Orchestrator, OrchestratorOptions } from "../orchestrator.js";
+import type { Orchestrator } from "../orchestrator.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -116,8 +115,10 @@ export const NervaModule = {
         },
         {
           provide: NERVA_ORCHESTRATOR_TOKEN,
-          useFactory: async (opts: NervaModuleOptions) =>
-            opts.orchestratorFactory(),
+          useFactory: async (...args: unknown[]) => {
+            const opts = args[0] as NervaModuleOptions;
+            return opts.orchestratorFactory();
+          },
           inject: [NERVA_OPTIONS_TOKEN],
         },
       ],
@@ -148,9 +149,9 @@ export function NervaCtx(): ParameterDecorator {
   return (_target: object, _propertyKey: string | symbol | undefined, parameterIndex: number): void => {
     // Store metadata for extraction by NervaInterceptor
     const existing: number[] =
-      Reflect.getMetadata?.("nerva:ctx_params", _target) ?? [];
+      (Reflect as any).getMetadata?.("nerva:ctx_params", _target) ?? [];
     existing.push(parameterIndex);
-    Reflect.defineMetadata?.("nerva:ctx_params", existing, _target);
+    (Reflect as any).defineMetadata?.("nerva:ctx_params", existing, _target);
   };
 }
 
