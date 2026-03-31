@@ -1,0 +1,97 @@
+---
+title: mcp-armor
+description: Sandboxing and security policies for MCP tool execution.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+mcp-armor provides a security boundary around MCP (Model Context Protocol) tool calls. It enforces filesystem, network, and environment variable restrictions before any tool executes, preventing agents from accessing resources outside their allowed scope.
+
+<Aside type="caution">
+Never run MCP tools without armor in production. Without a policy, any tool can access the full filesystem, make arbitrary network calls, and read all environment variables.
+</Aside>
+
+## What it does
+
+Every tool call passes through the armor policy before execution. The policy checks:
+
+1. **Filesystem access** — are the paths in the tool's arguments within allowed directories?
+2. **Network access** — is the tool attempting to reach URLs or hosts?
+3. **Environment variables** — which env vars can the tool process read?
+4. **Output size** — is the result within the byte limit?
+
+If any check fails, the tool call is rejected with a `PERMISSION_DENIED` status before the MCP server ever sees it.
+
+## ArmorPolicy
+
+Define a policy when creating the `MCPToolManager`:
+
+```typescript
+import { MCPToolManager } from 'nerva';
+
+const manager = new MCPToolManager({
+  servers: [
+    { name: 'filesystem', command: 'mcp-server-fs', args: ['--root', '/data'] }
+  ],
+  armor: {
+    allowedPaths: ['/data', '/tmp/nerva'],
+    allowNetwork: false,
+    allowedEnvVars: ['HOME', 'PATH'],
+    maxResultBytes: 524_288,  // 512 KB
+  },
+});
+```
+
+### Policy fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowedPaths` | `string[]` | `[]` (no filesystem) | Filesystem path prefixes the tool may access |
+| `allowNetwork` | `boolean` | `false` | Whether the tool may make network calls |
+| `allowedEnvVars` | `string[]` | `[]` (none) | Environment variable names the tool may read |
+| `maxResultBytes` | `number` | `524288` (512 KB) | Maximum output size before truncation |
+
+<Aside type="tip">
+The default armor policy is deny-all. With no explicit `allowedPaths`, `allowNetwork: false`, and no `allowedEnvVars`, tools are completely sandboxed. Start from deny-all and open only what each tool needs.
+</Aside>
+
+## How checks work
+
+### Path filtering
+
+The armor inspects tool arguments for path-related keys (`path`, `file`, `filepath`, `filename`, `directory`, `dir`). If a value does not start with one of the `allowedPaths` prefixes, the call is blocked.
+
+With an empty `allowedPaths` array, any argument using a path key is rejected.
+
+### Network filtering
+
+When `allowNetwork` is `false`, arguments with network-related keys (`url`, `uri`, `endpoint`, `host`, `hostname`) cause the call to be blocked.
+
+### Result truncation
+
+Tool output exceeding `maxResultBytes` is truncated with a `... [truncated]` suffix. This prevents a misbehaving tool from flooding the context window.
+
+## Connection pooling
+
+The `MCPToolManager` maintains a pool of MCP server connections with LRU eviction. Configuration:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `poolSize` | `5` | Maximum concurrent MCP server connections |
+| `timeoutMs` | `30000` | Timeout for connection setup and tool calls |
+
+When the pool is full, the least-recently-used connection is closed to make room for a new one.
+
+## Permission filtering
+
+Before armor checks, every tool call is filtered through `ctx.permissions.canUseTool(toolName)`. Tools the caller is not permitted to use are excluded from discovery results and rejected on execution.
+
+## Tool call lifecycle
+
+```
+1. Permission check      ctx.permissions.canUseTool(name) → deny if false
+2. Armor policy check    checkArmor(args, policy) → deny if violation
+3. MCP server call       conn.callTool(name, args) via JSON-RPC
+4. Result truncation     truncateResult(output, maxBytes)
+5. Return ToolResult     status: SUCCESS | ERROR | TIMEOUT
+```

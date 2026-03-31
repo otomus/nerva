@@ -1,0 +1,291 @@
+---
+title: Router
+description: Classify intent and select the right handler.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+The Router takes a raw user message and returns a structured `IntentResult` with a confidence score and ranked handler candidates.
+
+## Protocol
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class IntentRouter(Protocol):
+      async def classify(self, message: str, ctx: ExecContext) -> IntentResult:
+          ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  interface IntentRouter {
+    classify(message: string, ctx: ExecContext): Promise<IntentResult>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type IntentRouter interface {
+      Classify(ctx *nctx.ExecContext, message string) (IntentResult, error)
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### IntentResult
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  @dataclass(frozen=True)
+  class IntentResult:
+      intent: str                       # classified intent label
+      confidence: float                 # 0.0 - 1.0
+      handlers: list[HandlerCandidate]  # ranked, best first
+      raw_scores: dict[str, float]      # per-handler scores (debugging)
+
+  @dataclass(frozen=True)
+  class HandlerCandidate:
+      name: str       # must match a registry entry
+      score: float    # 0.0 - 1.0
+      reason: str     # why this handler was selected
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  interface IntentResult {
+    readonly intent: string;                        // classified intent label
+    readonly confidence: number;                     // 0.0 - 1.0
+    readonly handlers: readonly HandlerCandidate[];  // ranked, best first
+    readonly rawScores: Record<string, number>;      // per-handler scores (debugging)
+    readonly bestHandler: HandlerCandidate | null;   // convenience getter
+  }
+
+  interface HandlerCandidate {
+    readonly name: string;    // must match a registry entry
+    readonly score: number;   // 0.0 - 1.0
+    readonly reason: string;  // why this handler was selected
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type IntentResult struct {
+      Intent     string
+      Confidence float64
+      Handlers   []HandlerCandidate
+      RawScores  map[string]float64
+  }
+
+  type HandlerCandidate struct {
+      Name   string
+      Score  float64
+      Reason string
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+## Strategies
+
+### RuleRouter
+
+Deterministic regex matching. First match wins. Zero LLM cost.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.router.rule import RuleRouter, Rule
+
+  router = RuleRouter(
+      rules=[
+          Rule(pattern=r"weather", handler="weather_agent", intent="weather"),
+          Rule(pattern=r"calendar|schedule", handler="calendar_agent", intent="calendar"),
+      ],
+      default_handler="general_agent",
+  )
+
+  result = await router.classify("What's the weather?", ctx)
+  # intent="weather", confidence=1.0, handler="weather_agent"
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { RuleRouter } from "nerva/router/rule";
+
+  const router = new RuleRouter(
+    [
+      { pattern: "weather", handler: "weather_agent", intent: "weather" },
+      { pattern: "calendar|schedule", handler: "calendar_agent", intent: "calendar" },
+    ],
+    "general_agent",
+  );
+
+  const result = await router.classify("What's the weather?", ctx);
+  // intent="weather", confidence=1.0, handler="weather_agent"
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/router"
+
+  r, err := router.NewRuleRouter(
+      []router.Rule{
+          {Pattern: "weather", Handler: "weather_agent", Intent: "weather"},
+          {Pattern: "calendar|schedule", Handler: "calendar_agent", Intent: "calendar"},
+      },
+      "general_agent",
+  )
+
+  result, err := r.Classify(ctx, "What's the weather?")
+  // Intent="weather", Confidence=1.0, Handler="weather_agent"
+  ```
+  </TabItem>
+</Tabs>
+
+**When to use:** < 10 agents, keywords are unambiguous, you want deterministic routing.
+
+<Aside type="tip">
+RuleRouter is the right starting point for most projects. Switch to EmbeddingRouter when keyword overlap causes misroutes.
+</Aside>
+
+### EmbeddingRouter
+
+Cosine similarity against handler descriptions. No LLM call needed -- just an embedding model.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.router.embedding import EmbeddingRouter
+
+  router = EmbeddingRouter(embed=my_embed_func, threshold=0.3, top_k=5)
+
+  await router.register("weather_agent", "Answer weather and forecast questions")
+  await router.register("calendar_agent", "Manage calendar events and scheduling")
+
+  result = await router.classify("Will it rain tomorrow?", ctx)
+  # intent="semantic", confidence=0.87, handler="weather_agent"
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { EmbeddingRouter } from "nerva/router/embedding";
+
+  const router = new EmbeddingRouter(myEmbedFunc, { threshold: 0.3, topK: 5 });
+
+  await router.register("weather_agent", "Answer weather and forecast questions");
+  await router.register("calendar_agent", "Manage calendar events and scheduling");
+
+  const result = await router.classify("Will it rain tomorrow?", ctx);
+  // intent="semantic", confidence=0.87, handler="weather_agent"
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go currently provides RuleRouter. Embedding routing is available
+  // in Python and TypeScript. For Go, use RuleRouter or implement
+  // the IntentRouter interface with your own embedding logic.
+  ```
+  </TabItem>
+</Tabs>
+
+**When to use:** 10+ agents, natural language overlap between domains, you want fast sub-50ms routing without LLM costs.
+
+### LLMRouter
+
+Sends the handler catalog to an LLM and asks for structured output.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.router.llm import LLMRouter
+
+  router = LLMRouter(llm=my_llm_func)
+
+  await router.register("flight_agent", "Book airline flights and manage reservations")
+  await router.register("hotel_agent", "Reserve hotel rooms")
+
+  result = await router.classify("Book me a flight to Berlin next Tuesday", ctx)
+  # intent="llm", confidence=0.95, handler="flight_agent"
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { LLMRouter } from "nerva/router/llm";
+
+  const router = new LLMRouter(myLlmFn);
+
+  router.register("flight_agent", "Book airline flights and manage reservations");
+  router.register("hotel_agent", "Reserve hotel rooms");
+
+  const result = await router.classify("Book me a flight to Berlin next Tuesday", ctx);
+  // intent="llm", confidence=0.95, handler="flight_agent"
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go currently provides RuleRouter. LLM routing is available
+  // in Python and TypeScript. For Go, implement the IntentRouter
+  // interface with your own LLM integration.
+  ```
+  </TabItem>
+</Tabs>
+
+**When to use:** Complex queries that need reasoning, multi-intent messages, high accuracy requirements.
+
+<Aside type="caution">
+LLMRouter makes an LLM call on every request. For latency-sensitive paths, use HybridRouter which only calls the LLM for the pre-filtered top candidates.
+</Aside>
+
+### HybridRouter
+
+Embedding pre-filter then LLM re-rank. Best of both worlds.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.router.hybrid import HybridRouter
+
+  router = HybridRouter(
+      embed=my_embed_func,
+      rerank=my_rerank_func,
+      embedding_threshold=0.2,
+      pre_filter_k=10,        # pre-filter to top 10
+      final_k=5,              # return top 5 after re-ranking
+  )
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { HybridRouter } from "nerva/router/hybrid";
+
+  const router = new HybridRouter(myEmbedFunc, myRerankFunc, {
+    embeddingThreshold: 0.2,
+    preFilterK: 10,       // pre-filter to top 10
+    finalK: 5,            // return top 5 after re-ranking
+  });
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go currently provides RuleRouter. Hybrid routing is available
+  // in Python and TypeScript. For Go, compose your own two-stage
+  // router by implementing the IntentRouter interface.
+  ```
+  </TabItem>
+</Tabs>
+
+**When to use:** Large handler catalogs (50+) where LLM routing over the full catalog is too slow or expensive.
+
+## Choosing a strategy
+
+| Criteria | Rule | Embedding | LLM | Hybrid |
+|----------|------|-----------|-----|--------|
+| Latency | ~0ms | ~10ms | ~500ms | ~50ms (cache hit) / ~550ms |
+| Cost | Free | Embedding model | LLM tokens | Both |
+| Accuracy | Exact match only | Good | Best | Best |
+| Setup effort | Manual rules | Handler descriptions | Handler descriptions | Both routers |
+| Scales to | ~20 handlers | ~200 handlers | ~50 handlers | ~500 handlers |
+
+Start with `RuleRouter`. Switch to `EmbeddingRouter` when keyword overlap causes misroutes. Add `HybridRouter` when you need both speed and accuracy at scale.

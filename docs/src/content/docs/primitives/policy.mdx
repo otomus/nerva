@@ -1,0 +1,442 @@
+---
+title: Policy
+description: Declarative safety, rate limits, budgets, and approval gates.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+The PolicyEngine evaluates and records governance decisions at every execution stage. It controls who can do what, how much, and whether a human must approve.
+
+## Protocol
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class PolicyEngine(Protocol):
+      async def evaluate(self, action: PolicyAction, ctx: ExecContext) -> PolicyDecision:
+          ...
+
+      async def record(self, action: PolicyAction, decision: PolicyDecision, ctx: ExecContext) -> None:
+          ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  export interface PolicyEngine {
+    evaluate(action: PolicyAction, ctx: ExecContext): Promise<PolicyDecision>;
+    record(action: PolicyAction, decision: PolicyDecision, ctx: ExecContext): Promise<void>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type PolicyEngine interface {
+      Evaluate(ctx *nctx.ExecContext, action PolicyAction) (PolicyDecision, error)
+      Record(ctx *nctx.ExecContext, action PolicyAction, decision PolicyDecision) error
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### Value types
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  @dataclass(frozen=True)
+  class PolicyAction:
+      kind: str       # "invoke_agent", "call_tool", "delegate", "store_memory", "route"
+      subject: str    # who is acting (user_id or agent_name)
+      target: str     # what they are acting on (agent_name, tool_name)
+      metadata: dict[str, str]
+
+  @dataclass(frozen=True)
+  class PolicyDecision:
+      allowed: bool
+      reason: str | None = None
+      require_approval: bool = False
+      approvers: list[str] | None = None
+      budget_remaining: float | None = None
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  export interface PolicyAction {
+    readonly kind: string;
+    readonly subject: string;
+    readonly target: string;
+    readonly metadata: Readonly<Record<string, string>>;
+  }
+
+  export interface PolicyDecision {
+    readonly allowed: boolean;
+    readonly reason: string | null;
+    readonly requireApproval: boolean;
+    readonly approvers: ReadonlyArray<string> | null;
+    readonly budgetRemaining: number | null;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type PolicyAction struct {
+      Kind     string
+      Subject  string
+      Target   string
+      Metadata map[string]string
+  }
+
+  type PolicyDecision struct {
+      Allowed         bool
+      Reason          string
+      RequireApproval bool
+      Approvers       []string
+      BudgetRemaining *float64 // nil if not tracked
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+## Strategies
+
+### NoopPolicyEngine
+
+<Aside type="tip">
+`NoopPolicyEngine` is perfect for development and testing -- it allows everything with zero configuration. Swap it for `YamlPolicyEngine` when you're ready for production.
+</Aside>
+
+Allows everything. Use for development and testing.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.policy.noop import NoopPolicyEngine
+
+  policy = NoopPolicyEngine()
+  decision = await policy.evaluate(action, ctx)
+  # decision.allowed == True (always)
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { NoopPolicyEngine } from "nerva/policy/noop";
+
+  const policy = new NoopPolicyEngine();
+  const decision = await policy.evaluate(action, ctx);
+  // decision.allowed === true (always)
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go does not ship a NoopPolicyEngine, but the equivalent is trivial:
+  type NoopPolicyEngine struct{}
+
+  func (n *NoopPolicyEngine) Evaluate(_ *nctx.ExecContext, _ policy.PolicyAction) (policy.PolicyDecision, error) {
+      return policy.Allow, nil
+  }
+
+  func (n *NoopPolicyEngine) Record(_ *nctx.ExecContext, _ policy.PolicyAction, _ policy.PolicyDecision) error {
+      return nil
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### YamlPolicyEngine
+
+Loads rules from a YAML config file and evaluates four dimensions:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.policy.yaml_engine import YamlPolicyEngine
+
+  policy = YamlPolicyEngine(config_path="nerva.yaml")
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { YamlPolicyEngine } from "nerva/policy/yaml-engine";
+
+  const policy = new YamlPolicyEngine({ configPath: "nerva.yaml" });
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/policy"
+
+  engine, err := policy.NewYamlPolicyEngine("nerva.yaml")
+  if err != nil {
+      log.Fatal(err)
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+**Configuration:**
+
+```yaml
+policies:
+  rate_limit:
+    per_user:
+      max_requests_per_minute: 30
+      on_exceed: reject        # reject | queue | warn
+
+  budget:
+    per_agent:
+      max_tokens_per_hour: 100000
+      max_cost_per_day_usd: 5.00
+      on_exceed: pause         # block | pause | warn | degrade
+
+  approval:
+    agents:
+      - name: deploy_agent
+        requires_approval: true
+        approvers: [admin, devops]
+
+  execution:
+    max_depth: 5               # delegation depth limit
+    max_tool_calls_per_invocation: 20
+    timeout_seconds: 30
+```
+
+**Evaluation order:** rate limit -> budget -> approval -> execution limits. First denial short-circuits.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  action = PolicyAction(kind="invoke_agent", subject="user_1", target="deploy_agent")
+  decision = await policy.evaluate(action, ctx)
+
+  if decision.require_approval:
+      print(f"Needs approval from: {decision.approvers}")
+  elif not decision.allowed:
+      print(f"Denied: {decision.reason}")
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { createPolicyAction } from "nerva/policy";
+
+  const action = createPolicyAction("invoke_agent", "user_1", "deploy_agent");
+  const decision = await policy.evaluate(action, ctx);
+
+  if (decision.requireApproval) {
+    console.log(`Needs approval from: ${decision.approvers}`);
+  } else if (!decision.allowed) {
+    console.log(`Denied: ${decision.reason}`);
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  action := policy.PolicyAction{
+      Kind:    "invoke_agent",
+      Subject: "user_1",
+      Target:  "deploy_agent",
+  }
+  decision, err := engine.Evaluate(ctx, action)
+
+  if decision.RequireApproval {
+      fmt.Printf("Needs approval from: %v\n", decision.Approvers)
+  } else if !decision.Allowed {
+      fmt.Printf("Denied: %s\n", decision.Reason)
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### AdaptivePolicyEngine
+
+Extends `YamlPolicyEngine` with runtime condition monitoring. Adapts limits based on system load, error rates, or custom signals.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.policy.adaptive import AdaptivePolicyEngine
+
+  policy = AdaptivePolicyEngine(
+      config_path="nerva.yaml",
+      conditions={
+          "high_load": lambda ctx: ctx.metadata.get("system_load", "0") > "0.8",
+      },
+      adaptations={
+          "high_load": {"rate_limit_max_per_minute": 10},  # tighten under load
+      },
+  )
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { AdaptivePolicyEngine, createAdaptivePolicyConfig } from "nerva/policy/adaptive";
+  import { YamlPolicyEngine } from "nerva/policy/yaml-engine";
+
+  const base = new YamlPolicyEngine({ configPath: "nerva.yaml" });
+
+  const policy = new AdaptivePolicyEngine(
+    base,
+    createAdaptivePolicyConfig({
+      throttleAfterCost: 2.00,   // advisory when cumulative cost exceeds $2
+      pauseAfterCost: 5.00,      // halt execution when cost exceeds $5
+      baseTimeoutSeconds: 30,
+      timeoutExtensionFactor: 2.0,
+    }),
+  );
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // The Go SDK does not include an AdaptivePolicyEngine out of the box.
+  // Wrap YamlPolicyEngine and add adaptive checks in your Evaluate():
+  type AdaptiveEngine struct {
+      base           *policy.YamlPolicyEngine
+      pauseAfterCost float64
+  }
+
+  func (a *AdaptiveEngine) Evaluate(ctx *nctx.ExecContext, action policy.PolicyAction) (policy.PolicyDecision, error) {
+      decision, err := a.base.Evaluate(ctx, action)
+      if err != nil || !decision.Allowed {
+          return decision, err
+      }
+      if ctx.TokenUsage.CostUSD >= a.pauseAfterCost {
+          zero := 0.0
+          return policy.PolicyDecision{
+              Allowed: false, Reason: "budget_exceeded_adaptive", BudgetRemaining: &zero,
+          }, nil
+      }
+      return decision, nil
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+<Aside type="caution">
+Always enable a real policy engine in production. Without it, there are no rate limits, no budget caps, and no approval gates -- any user or agent can do anything.
+</Aside>
+
+## Per-agent decorator overrides
+
+Override YAML defaults on a per-agent basis using the `@agent` decorator:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.policy.decorator import agent
+
+  @agent(name="deploy_agent", policy={
+      "requires_approval": True,
+      "timeout_seconds": 120,
+      "max_tool_calls": 5,
+      "max_cost_usd": 1.00,
+      "approvers": ["admin"],
+  })
+  class DeployAgent:
+      async def handle(self, input, ctx):
+          ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { agentPolicy } from "nerva/policy/decorator";
+
+  @agentPolicy("deploy_agent", {
+    requiresApproval: true,
+    timeoutSeconds: 120,
+    maxToolCalls: 5,
+    maxCostUsd: 1.00,
+    approvers: ["admin"],
+  })
+  class DeployAgent {
+    async handle(input: string, ctx: ExecContext) {
+      // ...
+    }
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go does not have decorators. Register per-agent policy overrides
+  // by building a lookup map and checking it during evaluation:
+  var agentPolicies = map[string]AgentPolicyConfig{
+      "deploy_agent": {
+          RequiresApproval: true,
+          TimeoutSeconds:   120,
+          MaxToolCalls:     5,
+          MaxCostUSD:       1.00,
+          Approvers:        []string{"admin"},
+      },
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+Resolution order: **YAML defaults -> decorator overrides**. Decorator values win for any field they set.
+
+## Policy dimensions
+
+### Rate limiting
+
+Sliding-window per-user request rate. Tracks timestamps in memory with automatic window cleanup.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  # Evaluate
+  decision = await policy.evaluate(
+      PolicyAction(kind="invoke_agent", subject="user_1", target="any"),
+      ctx,
+  )
+  # "rate limit exceeded: 31/30 requests per minute (on_exceed=reject)"
+
+  # Record (only updates counters when allowed)
+  await policy.record(action, decision, ctx)
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { createPolicyAction } from "nerva/policy";
+
+  const action = createPolicyAction("invoke_agent", "user_1", "any");
+  const decision = await policy.evaluate(action, ctx);
+  // "rate limit exceeded: 31/30 requests per minute (on_exceed=reject)"
+
+  // Record (only updates counters when allowed)
+  await policy.record(action, decision, ctx);
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  action := policy.PolicyAction{Kind: "invoke_agent", Subject: "user_1", Target: "any"}
+  decision, err := engine.Evaluate(ctx, action)
+  // "rate limit exceeded: 31/30 requests per minute (on_exceed=reject)"
+
+  // Record (only updates counters when allowed)
+  err = engine.Record(ctx, action, decision)
+  ```
+  </TabItem>
+</Tabs>
+
+### Budget enforcement
+
+Per-agent token and cost ceilings with configurable on-exceed behavior:
+
+| on_exceed | Behavior |
+|-----------|----------|
+| `block` | Deny the action immediately |
+| `pause` | Deny and signal the orchestrator to queue |
+| `warn` | Allow but log a warning |
+| `degrade` | Allow with reduced capability |
+
+Budget tracking reads `ctx.token_usage.total_tokens` and `ctx.token_usage.cost_usd`.
+
+### Approval gates
+
+Named agents that require human sign-off. The decision returns `require_approval=True` with the approver list. Your application is responsible for the approval UI -- Nerva only gates execution.
+
+### Execution limits
+
+Guards against runaway recursion and unbounded tool usage:
+
+- **max_depth** -- maximum delegation depth for a single request chain
+- **max_tool_calls_per_invocation** -- tool call ceiling per agent invocation
+- **timeout_seconds** -- per-action timeout

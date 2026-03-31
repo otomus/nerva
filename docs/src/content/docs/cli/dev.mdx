@@ -1,0 +1,83 @@
+---
+title: nerva dev & nerva test
+description: Local development tools for testing agents and inspecting traces.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`nerva dev` and `nerva test` are local development helpers. They do not start a server — Nerva is a library, and your HTTP layer belongs to your framework.
+
+<Aside type="note">
+Nerva never owns your HTTP layer. `nerva dev` is a local REPL and trace viewer for development. In production, your agents run inside your FastAPI / Express / NestJS app.
+</Aside>
+
+
+## nerva dev
+
+Start an interactive REPL that loads your `nerva.yaml`, discovers agents, tools, and middleware, and lets you send messages to your orchestrator from the terminal.
+
+```bash
+nerva dev
+```
+
+What it does:
+
+- Loads `nerva.yaml` and registers all components
+- Watches `agents/`, `tools/`, and `middleware/` for file changes and auto-reloads
+- Opens an interactive prompt where you type messages and see agent responses
+- Records traces for every request and displays them inline
+
+<Aside type="tip">
+`nerva dev` watches component directories, not `nerva.yaml` itself. If you edit `nerva.yaml`, restart the session to pick up changes.
+</Aside>
+
+
+### Trace output
+
+Every request produces a trace tree printed below the response:
+
+```
+[req_abc] handle "What's the weather in Berlin?"  (52ms)
+  +-- [req_abc.1] router.classify                   (1ms)
+  +-- [req_abc.2] runtime.invoke weather_agent       (48ms)
+  |   +-- [req_abc.2.1] tools.call get_weather       (45ms)
+  +-- [req_abc.3] responder.format                   (1ms)
+```
+
+Color coding: agents (purple), tools (blue), middleware (gold), router (orange), system (cyan).
+
+
+## nerva test
+
+Run your project's test suite with automatic language detection.
+
+```bash
+nerva test [--coverage]
+```
+
+The test command reads `nerva.yaml` to detect the project language and runs the appropriate runner:
+
+| Language | Runner | Command |
+|----------|--------|---------|
+| Python | pytest | `python -m pytest` |
+| TypeScript | vitest | `npx vitest run` |
+
+Add `--coverage` to enable coverage reporting.
+
+<Aside type="tip">
+The `--coverage` flag requires the appropriate coverage tool: `pytest-cov` for Python or `@vitest/coverage-v8` for TypeScript.
+</Aside>
+
+
+## Examples
+
+```bash
+# Interactive development REPL
+nerva dev
+
+# Run tests
+nerva test
+
+# Run tests with coverage
+nerva test --coverage
+```

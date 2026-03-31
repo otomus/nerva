@@ -1,0 +1,59 @@
+---
+/**
+ * Custom site title for Starlight that matches the nerva landing page style.
+ * Renders "nerva" in JetBrains Mono bold #7FC8FF with a "Back to Home" link.
+ */
+---
+
+<div class="site-title-wrapper">
+  <a href="/nerva/" class="back-to-home" title="Back to Home">&larr;</a>
+  <a href="/nerva/docs/" class="site-title">nerva</a>
+  <span class="site-title-label">docs</span>
+</div>
+
+<style>
+  .site-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .back-to-home {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: #7FC8FF;
+    text-decoration: none;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+    line-height: 1;
+  }
+
+  .back-to-home:hover {
+    opacity: 1;
+    color: #b3dfff;
+  }
+
+  .site-title {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #7FC8FF !important;
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+
+  .site-title:hover {
+    color: #b3dfff !important;
+  }
+
+  .site-title-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15em 0.4em;
+    border: 1px solid rgba(127, 200, 255, 0.15);
+    border-radius: 4px;
+  }
+</style>

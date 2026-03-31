@@ -3,6 +3,12 @@ title: Migration Guide
 description: Migrate from LangGraph, CrewAI, or AutoGen to Nerva.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+You don't need to migrate everything at once. Nerva primitives work standalone -- start by replacing one component (e.g., swap your router or memory layer) and expand from there.
+</Aside>
+
 ## From LangGraph
 
 ### Concept mapping
@@ -27,6 +33,10 @@ description: Migrate from LangGraph, CrewAI, or AutoGen to Nerva.
 - **No graph definition.** Routing is declarative (rules, embeddings, or LLM-based), not edges between nodes.
 - **Explicit context.** ExecContext replaces LangGraph's implicit state passing.
 - **No compile step.** Nerva primitives are instantiated directly.
+
+<Aside type="note">
+Nerva does not need a compile step. Unlike LangGraph's `graph.compile()`, Nerva primitives are live objects you instantiate and compose directly. There is no intermediate representation or build phase.
+</Aside>
 
 ### Code comparison
 

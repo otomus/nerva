@@ -3,6 +3,8 @@ title: Architecture
 description: How Nerva's primitives fit together.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 ## Design principles
 
 1. **Library, not server** -- Nerva runs inside your web framework. It does not own HTTP, auth, or API docs.
@@ -13,46 +15,7 @@ description: How Nerva's primitives fit together.
 
 ## Request flow
 
-```
-         Message
-           |
-    +------v------+
-    | ExecContext  |  <-- created from framework auth (user, session, permissions)
-    +------+------+
-           |
-    +------v------+
-    |   Policy     |  <-- rate limit check, budget check, approval gate
-    +------+------+
-           |
-    +------v------+
-    |    Router    |  <-- classify intent, select handler from Registry
-    +------+------+
-           |
-    +------v------+
-    |   Policy     |  <-- invoke_agent permission check
-    +------+------+
-           |
-    +------v------+
-    |   Runtime    |  <-- execute handler (subprocess / in-process / container)
-    |     +- Tools |  <-- discover from Registry, sandbox, call
-    |     +- Memory|  <-- read context, write results
-    |     +- Policy|  <-- per-agent budget, tool call limits
-    +------+------+
-           |
-    +------v------+
-    |   Memory     |  <-- store episode, extract facts
-    +------+------+
-           |
-    +------v------+
-    |  Registry    |  <-- update invocation stats
-    +------+------+
-           |
-    +------v------+
-    |  Responder   |  <-- format for channel + tone
-    +------+------+
-           |
-         Output
-```
+<object type="image/svg+xml" data="/nerva/docs/architecture-flow.svg" style="width:100%;max-width:800px;margin:0 auto;display:block;">Architecture flow diagram</object>
 
 Policy appears three times -- before routing, before invocation, and during execution. Each checkpoint evaluates different rules (rate limit vs permission vs budget).
 
@@ -68,6 +31,10 @@ ExecContext is the single object that threads through every primitive call. It c
 - **Streaming** -- optional stream sink for real-time token delivery
 
 Without it, you end up passing 6+ separate arguments to every function, or building a god-object in v2.
+
+<Aside type="note">
+ExecContext is the connective tissue of Nerva. Every primitive -- Router, Runtime, Tools, Memory, Policy, Responder -- receives it as a parameter. This is what makes tracing, permissions, and memory scoping work across the entire pipeline without global state.
+</Aside>
 
 ```python
 ctx = ExecContext.create(
@@ -133,7 +100,9 @@ orchestrator = Orchestrator(
 )
 ```
 
-Middleware runs in order for `before_*` hooks and reverse order for `after_*` hooks, matching the standard onion model.
+<Aside type="tip">
+Middleware runs in onion order: `before_*` hooks execute in the order they are listed, and `after_*` hooks execute in reverse order. This means the first middleware in the list is the outermost layer -- it sees the raw input first and the final output last.
+</Aside>
 
 ## Streaming architecture
 

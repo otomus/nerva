@@ -1,0 +1,98 @@
+---
+title: nerva new
+description: Scaffold a new Nerva project with the correct directory structure and configuration.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Create a new Nerva project with language-specific scaffolding.
+
+## Usage
+
+```bash
+nerva new <name> [--lang python|typescript]
+```
+
+## Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-l, --lang <language>` | `python` | Project language: `python` or `typescript` |
+
+<Aside type="note">
+If you omit `--lang`, the project defaults to Python. Choose carefully — the language cannot be changed after creation.
+</Aside>
+
+## What it creates
+
+### Python project
+
+```
+my-agent/
+  nerva.yaml
+  main.py
+  requirements.txt
+  agents/
+  tools/
+  memory/
+  middleware/
+  tests/
+```
+
+- **main.py** — entry point that loads `nerva.yaml` and starts the Runtime
+- **requirements.txt** — includes `nerva>=0.1.0`
+- **nerva.yaml** — project configuration with empty component lists
+
+### TypeScript project
+
+```
+my-agent/
+  nerva.yaml
+  package.json
+  tsconfig.json
+  src/
+    index.ts
+    agents/
+    tools/
+    memory/
+    middleware/
+  tests/
+```
+
+- **src/index.ts** — entry point that loads `nerva.yaml` and starts the Runtime
+- **package.json** — includes `nerva` as a dependency, `vitest` for testing, `tsc` for building
+- **tsconfig.json** — strict mode, ES2022 target, node16 module resolution
+- **nerva.yaml** — project configuration with empty component lists
+
+## nerva.yaml
+
+The generated config file:
+
+```yaml
+name: my-agent
+version: 0.1.0
+lang: python
+agents: []
+tools: []
+middleware: []
+routers: []
+```
+
+This file is the source of truth for the CLI. Commands like `nerva generate` and `nerva list` read and update it automatically.
+
+## Examples
+
+```bash
+# Python project (default)
+nerva new my-agent
+
+# TypeScript project
+nerva new my-agent --lang typescript
+
+# Using npx
+npx nerva new my-agent --lang python
+```
+
+<Aside type="tip">
+Run `nerva new` from an empty parent directory. The command creates a subdirectory named after your project — it will not overwrite an existing directory with the same name.
+</Aside>

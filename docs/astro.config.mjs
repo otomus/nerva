@@ -2,14 +2,44 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 export default defineConfig({
+  site: "https://otomus.github.io",
+  base: "/nerva/docs",
   integrations: [
     starlight({
-      title: "Nerva",
+      title: "nerva",
       description: "Composable Agent Primitives",
+      customCss: ["./src/styles/custom.css"],
+      head: [
+        {
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: "https://fonts.googleapis.com",
+          },
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: "https://fonts.gstatic.com",
+            crossorigin: true,
+          },
+        },
+      ],
       social: {
         github: "https://github.com/otomus/nerva",
       },
+      components: {
+        SiteTitle: "./src/components/SiteTitle.astro",
+        ThemeSelect: "./src/components/ThemeSelect.astro",
+      },
       sidebar: [
+        {
+          label: "Architecture",
+          items: [
+            { label: "Overview", slug: "architecture" },
+          ],
+        },
         {
           label: "Getting Started",
           items: [
@@ -32,9 +62,21 @@ export default defineConfig({
           ],
         },
         {
-          label: "Architecture",
+          label: "CLI",
           items: [
-            { label: "Overview", slug: "architecture" },
+            { label: "Overview", slug: "cli/overview" },
+            { label: "nerva new", slug: "cli/new" },
+            { label: "nerva generate", slug: "cli/generate" },
+            { label: "nerva dev & test", slug: "cli/dev" },
+            { label: "Plugins", slug: "cli/plugins" },
+          ],
+        },
+        {
+          label: "Ecosystem",
+          items: [
+            { label: "NATS JetStream", slug: "ecosystem/nats" },
+            { label: "mcp-armor", slug: "ecosystem/mcp-armor" },
+            { label: "OpenTelemetry", slug: "ecosystem/opentelemetry" },
           ],
         },
         {

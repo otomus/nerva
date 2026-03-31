@@ -1,0 +1,168 @@
+---
+title: OpenTelemetry
+description: Distributed tracing, cost tracking, and observability export for Nerva pipelines.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Nerva includes built-in OpenTelemetry integration for exporting traces, spans, and cost metrics to any OTel-compatible backend (Jaeger, Datadog, Grafana Tempo, etc.).
+
+<Aside type="tip">
+Traces are automatic -- no manual instrumentation needed. Every agent invocation, tool call, and router decision generates spans out of the box. Just wire up a tracer and you get full visibility.
+</Aside>
+
+## Tracer interface
+
+All observability in Nerva flows through the `Tracer` interface. Tracers receive four callbacks:
+
+| Callback | When it fires |
+|----------|--------------|
+| `onSpanStart(span, ctx)` | A new span begins (agent invocation, tool call, router decision) |
+| `onSpanEnd(span, ctx)` | A span completes with timing data |
+| `onEvent(event, ctx)` | A discrete structured event is recorded |
+| `onComplete(ctx)` | The entire request finishes — use for flushing buffers |
+
+Multiple tracers run simultaneously. A typical setup combines JSON logging for local debugging with OTel export for production monitoring.
+
+## Built-in tracers
+
+### OTelTracer
+
+Maps Nerva spans to OpenTelemetry spans. Requires `@opentelemetry/api` as an optional peer dependency — falls back to no-ops if not installed.
+
+```typescript
+import { OTelTracer } from 'nerva';
+
+const tracer = new OTelTracer('my-service', {
+  'deployment.environment': 'production',
+  'service.version': '1.2.0',
+});
+```
+
+Each Nerva span becomes an OTel span with these attributes:
+
+| Attribute | Source |
+|-----------|--------|
+| `nerva.request_id` | `ctx.requestId` |
+| `nerva.trace_id` | `ctx.traceId` |
+| `nerva.span_id` | `span.spanId` |
+| `nerva.parent_id` | `span.parentId` (if not root) |
+
+Nerva events are added as OTel span events on the most recently active span. On request completion, any remaining open spans are flushed.
+
+### JsonLogTracer
+
+Writes one JSON line per trace callback to a file or stream. Useful for local debugging, log aggregation, and audit trails.
+
+```typescript
+import { JsonLogTracer } from 'nerva';
+
+// Write to file (append mode)
+const tracer = new JsonLogTracer('./traces/app.jsonl');
+
+// Write to stderr (default)
+const tracer = new JsonLogTracer();
+```
+
+Each line contains:
+
+```json
+{
+  "type": "span_end",
+  "timestamp": 1711234567.123456,
+  "request_id": "req_abc123",
+  "trace_id": "trace_xyz",
+  "span_id": "span_001",
+  "span_name": "invoke_tool",
+  "duration_s": 0.042
+}
+```
+
+The completion record includes a summary with span count, event count, token usage breakdown, and elapsed time.
+
+### CostTracker
+
+Wraps any `Tracer` and enriches spans with USD cost computed from token usage and per-model pricing.
+
+```typescript
+import { CostTracker, OTelTracer } from 'nerva';
+
+const pricing = {
+  'gpt-4o': 0.005,
+  'claude-sonnet-4-20250514': 0.003,
+  'llama-3.1-8b': 0.0002,
+};
+
+const tracer = new CostTracker(new OTelTracer(), pricing);
+```
+
+The cost tracker:
+
+1. Snapshots the token count when each span starts
+2. Computes the delta when the span ends
+3. Looks up the model from the span's `model` attribute
+4. Emits a `cost.calculated` event with `delta_tokens` and `cost_usd`
+5. Emits a `cost.total` event on request completion summing all span costs
+
+Pricing is specified as USD per 1,000 tokens. Unknown models default to 0.0 cost.
+
+<Aside type="note">
+Cost tracking is built into `token_usage` on every ExecContext. The CostTracker tracer reads these counters automatically -- you do not need to manually record token counts.
+</Aside>
+
+## Exporting to backends
+
+### Jaeger
+
+```bash
+npm install @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-jaeger
+```
+
+Configure the OTel SDK before creating your Nerva runtime:
+
+```typescript
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+
+const sdk = new NodeSDK({
+  traceExporter: new JaegerExporter({ endpoint: 'http://localhost:14268/api/traces' }),
+  serviceName: 'my-nerva-agent',
+});
+sdk.start();
+```
+
+### Datadog
+
+```bash
+npm install @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
+```
+
+```typescript
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+
+const sdk = new NodeSDK({
+  traceExporter: new OTLPTraceExporter({
+    url: 'http://localhost:4318/v1/traces',
+  }),
+  serviceName: 'my-nerva-agent',
+});
+sdk.start();
+```
+
+### Grafana Tempo
+
+Use the same OTLP exporter — Tempo accepts OTLP traces on port 4317 (gRPC) or 4318 (HTTP).
+
+## Graceful fallback
+
+The `OTelTracer` does not hard-fail when `@opentelemetry/api` is missing. It attempts a dynamic import at construction time and silently falls back to no-op callbacks. Use `isOTelAvailable()` to check:
+
+```typescript
+import { isOTelAvailable } from 'nerva';
+
+if (isOTelAvailable()) {
+  console.log('OTel export active');
+} else {
+  console.log('OTel not installed — traces are local only');
+}
+```

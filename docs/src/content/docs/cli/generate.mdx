@@ -1,0 +1,118 @@
+---
+title: nerva generate
+description: Generate agents, tools, middleware, and routers from templates.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Generate a new component, its test file, and register it in `nerva.yaml`.
+
+## Usage
+
+```bash
+nerva generate <type> <name>
+nerva g <type> <name>
+```
+
+`g` is an alias for `generate`.
+
+## Component types
+
+| Type | Description |
+|------|-------------|
+| `agent` | An autonomous agent that handles tasks |
+| `tool` | A capability the agent can invoke |
+| `middleware` | A pipeline stage that transforms requests or responses |
+| `router` | Intent classifier that routes messages to handlers |
+
+## What it creates
+
+For each component, the generator:
+
+1. **Creates the component file** from a language-specific template
+2. **Creates a test file** in the `tests/` directory
+3. **Registers the component** in `nerva.yaml` with its name and path
+
+<Aside type="tip">
+Use `nerva g` instead of `nerva generate` to save keystrokes. Both forms are identical in behavior.
+</Aside>
+
+### Python layout
+
+```bash
+nerva g agent weather-lookup
+```
+
+Creates:
+
+```
+agents/weather-lookup.py       # Component file
+tests/test_weather-lookup.py   # Test file
+```
+
+### TypeScript layout
+
+```bash
+nerva g agent weather-lookup
+```
+
+Creates:
+
+```
+src/agents/weather-lookup.ts        # Component file
+tests/weather-lookup.test.ts        # Test file
+```
+
+## Directory mapping
+
+| Type | Python directory | TypeScript directory |
+|------|-----------------|---------------------|
+| `agent` | `agents/` | `src/agents/` |
+| `tool` | `tools/` | `src/tools/` |
+| `middleware` | `middleware/` | `src/middleware/` |
+| `router` | `routers/` | `src/routers/` |
+
+## Template variables
+
+Templates receive these variables:
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `name` | `weather-lookup` | Component name as provided (kebab-case) |
+| `class_name` | `WeatherLookup` | PascalCase version of the name |
+| `type` | `agent` | The component type |
+| `description` | `A agent named weather-lookup` | Default description |
+
+## nerva.yaml registration
+
+After generation, the component is appended to the appropriate list in `nerva.yaml`:
+
+```yaml
+agents:
+  - name: weather-lookup
+    path: agents/weather-lookup.py
+```
+
+<Aside type="note">
+Duplicate names are silently skipped — the CLI will not re-register an existing component. If you need to regenerate a component, delete it from `nerva.yaml` first.
+</Aside>
+
+## Custom templates via plugins
+
+The built-in types (`agent`, `tool`, `middleware`, `router`) use bundled templates. To add custom component types, install a [plugin](/nerva/docs/cli/plugins/) that provides additional templates.
+
+## Examples
+
+```bash
+# Generate an agent
+nerva generate agent order-processor
+
+# Generate a tool (short alias)
+nerva g tool web-scraper
+
+# Generate middleware
+nerva g middleware rate-limiter
+
+# Generate a router
+nerva g router intent-classifier
+```

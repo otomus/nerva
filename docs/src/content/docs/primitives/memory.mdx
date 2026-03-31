@@ -1,0 +1,371 @@
+---
+title: Memory
+description: Tiered context storage with token budgeting and scope isolation.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+The Memory primitive provides tiered storage that agents read from and write to. Context is automatically scoped by user, session, or agent.
+
+## Protocol
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class Memory(Protocol):
+      async def recall(self, query: str, ctx: ExecContext) -> MemoryContext:
+          ...
+
+      async def store(self, event: MemoryEvent, ctx: ExecContext) -> None:
+          ...
+
+      async def consolidate(self, ctx: ExecContext) -> None:
+          ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  interface Memory {
+    recall(query: string, ctx: ExecContext): Promise<MemoryContext>;
+
+    store(event: MemoryEvent, ctx: ExecContext): Promise<void>;
+
+    consolidate(ctx: ExecContext): Promise<void>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type Memory interface {
+      Recall(ctx *nctx.ExecContext, query string) (MemoryContext, error)
+
+      Store(ctx *nctx.ExecContext, event MemoryEvent) error
+
+      Consolidate(ctx *nctx.ExecContext) error
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### Value types
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class MemoryTier(StrEnum):
+      HOT = "hot"    # session state
+      WARM = "warm"  # episodes and facts
+      COLD = "cold"  # long-term knowledge
+
+  @dataclass(frozen=True)
+  class MemoryEvent:
+      content: str
+      tier: MemoryTier = MemoryTier.HOT
+      scope: Scope | None = None    # None = inherit from ctx
+      tags: frozenset[str] = frozenset()
+      source: str = ""
+
+  @dataclass
+  class MemoryContext:
+      conversation: list[dict[str, str]]  # recent messages
+      episodes: list[str]                  # warm tier
+      facts: list[str]                     # warm tier
+      knowledge: list[str]                 # cold tier
+      token_count: int                     # estimated tokens consumed
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  enum MemoryTier {
+    HOT = "hot",    // session state
+    WARM = "warm",  // episodes and facts
+    COLD = "cold",  // long-term knowledge
+  }
+
+  interface MemoryEvent {
+    readonly content: string;
+    readonly tier: MemoryTier;
+    readonly scope: Scope | null;    // null = inherit from ctx
+    readonly tags: ReadonlySet<string>;
+    readonly source: string;
+  }
+
+  interface MemoryContext {
+    readonly conversation: ReadonlyArray<Readonly<Message>>;  // recent messages
+    readonly episodes: ReadonlyArray<string>;                  // warm tier
+    readonly facts: ReadonlyArray<string>;                     // warm tier
+    readonly knowledge: ReadonlyArray<string>;                 // cold tier
+    readonly tokenCount: number;                               // estimated tokens consumed
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type MemoryTier string
+
+  const (
+      TierHot  MemoryTier = "hot"   // session state
+      TierWarm MemoryTier = "warm"  // episodes and facts
+      TierCold MemoryTier = "cold"  // long-term knowledge
+  )
+
+  type MemoryEvent struct {
+      Content string
+      Tier    MemoryTier
+      Scope   *nctx.Scope  // nil means inherit from ctx
+      Tags    map[string]bool
+      Source  string
+  }
+
+  type MemoryContext struct {
+      Conversation []map[string]string  // recent messages
+      Episodes     []string              // warm tier
+      Facts        []string              // warm tier
+      Knowledge    []string              // cold tier
+      TokenCount   int                   // estimated tokens consumed
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+Start with just HotMemory for simple agents. You can add warm and cold tiers later -- `TieredMemory` treats them as optional.
+</Aside>
+
+## Tiers
+
+### Hot -- session state
+
+In-memory conversation history. Fast, ephemeral. Cleared when the session ends.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.memory.hot import InMemoryHotMemory
+
+  hot = InMemoryHotMemory()
+  await hot.add_message("user", "What's the weather?", session_id="sess_1")
+  await hot.add_message("assistant", "22C in Berlin", session_id="sess_1")
+
+  messages = await hot.get_conversation("sess_1")
+  # [{"role": "user", "content": "What's the weather?"}, {"role": "assistant", ...}]
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { InMemoryHotMemory } from "nerva/memory/hot";
+
+  const hot = new InMemoryHotMemory();
+  await hot.addMessage("user", "What's the weather?", "sess_1");
+  await hot.addMessage("assistant", "22C in Berlin", "sess_1");
+
+  const messages = await hot.getConversation("sess_1");
+  // [{ role: "user", content: "What's the weather?" }, { role: "assistant", ... }]
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/memory"
+
+  hot := memory.NewInMemoryHotMemory(100)
+  hot.AddMessage("user", "What's the weather?", "sess_1")
+  hot.AddMessage("assistant", "22C in Berlin", "sess_1")
+
+  messages := hot.GetConversation("sess_1")
+  // [map[role:user content:What's the weather?], map[role:assistant content:...]]
+  ```
+  </TabItem>
+</Tabs>
+
+### Warm -- episodes and facts
+
+Persisted key-value store for extracted conversation episodes and factual knowledge. Survives session boundaries.
+
+Implement the `WarmTier` protocol with any key-value backend:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class WarmTier(Protocol):
+      async def get_episodes(self, query: str, session_id: str) -> list[str]: ...
+      async def get_facts(self, query: str, session_id: str) -> list[str]: ...
+      async def store(self, content: str, session_id: str) -> None: ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  interface WarmTier {
+    getEpisodes(query: string, sessionId: string): Promise<string[]>;
+    getFacts(query: string, sessionId: string): Promise<string[]>;
+    store(content: string, sessionId: string): Promise<void>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go's TieredMemory does not yet include warm/cold tier interfaces.
+  // The hot tier is fully implemented; warm and cold are no-op placeholders.
+  // Implement memory.Memory to add warm/cold tier support.
+  ```
+  </TabItem>
+</Tabs>
+
+### Cold -- long-term knowledge
+
+Vector database for semantic search over long-term knowledge. Use any embedding + vector store.
+
+Implement the `ColdTier` protocol:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class ColdTier(Protocol):
+      async def search(self, query: str, scope: str) -> list[str]: ...
+      async def store(self, content: str, scope: str) -> None: ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  interface ColdTier {
+    search(query: string, scope: string): Promise<string[]>;
+    store(content: string, scope: string): Promise<void>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Go's cold tier is a no-op placeholder in the current implementation.
+  // Implement memory.Memory to add vector search support.
+  ```
+  </TabItem>
+</Tabs>
+
+## TieredMemory
+
+Orchestrates all three tiers with automatic token budgeting:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.memory.tiered import TieredMemory
+  from nerva.memory.hot import InMemoryHotMemory
+  from nerva.memory import MemoryEvent, MemoryTier
+
+  memory = TieredMemory(
+      hot=InMemoryHotMemory(),
+      warm=my_warm_backend,      # optional
+      cold=my_vector_store,      # optional
+      token_budget=4000,         # max tokens in recalled context
+  )
+
+  # Store
+  await memory.store(
+      MemoryEvent(
+          content="User prefers metric units",
+          tier=MemoryTier.WARM,
+          source="preference_extractor",
+      ),
+      ctx,
+  )
+
+  # Recall -- queries all tiers, assembles within budget
+  context = await memory.recall("weather preferences", ctx)
+  print(context.facts)        # ["User prefers metric units"]
+  print(context.token_count)  # 12
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { TieredMemory } from "nerva/memory/tiered";
+  import { InMemoryHotMemory } from "nerva/memory/hot";
+  import { MemoryTier, createMemoryEvent } from "nerva/memory";
+
+  const memory = new TieredMemory({
+    hot: new InMemoryHotMemory(),
+    warm: myWarmBackend,      // optional
+    cold: myVectorStore,      // optional
+    tokenBudget: 4000,        // max tokens in recalled context
+  });
+
+  // Store
+  await memory.store(
+    createMemoryEvent("User prefers metric units", {
+      tier: MemoryTier.WARM,
+      source: "preference_extractor",
+    }),
+    ctx,
+  );
+
+  // Recall -- queries all tiers, assembles within budget
+  const context = await memory.recall("weather preferences", ctx);
+  console.log(context.facts);       // ["User prefers metric units"]
+  console.log(context.tokenCount);  // 12
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/memory"
+
+  hot := memory.NewInMemoryHotMemory(100)
+  mem := memory.NewTieredMemory(hot, 4000)
+
+  // Store
+  err := mem.Store(ctx, memory.MemoryEvent{
+      Content: "User prefers metric units",
+      Tier:    memory.TierHot,
+      Source:  "preference_extractor",
+  })
+
+  // Recall -- queries all tiers, assembles within budget
+  context, err := mem.Recall(ctx, "weather preferences")
+  fmt.Println(context.Facts)       // []
+  fmt.Println(context.TokenCount)  // 0
+  ```
+
+  The Go implementation currently supports the hot tier. Warm and cold tiers are no-op placeholders.
+  </TabItem>
+</Tabs>
+
+## Token budgeting
+
+`TieredMemory.recall()` assembles context within a configurable token budget. Priority order:
+
+1. **Conversation** (hot) -- most recent messages kept first
+2. **Facts** (warm) -- highest relevance first
+3. **Episodes** (warm) -- highest relevance first
+4. **Knowledge** (cold) -- highest relevance first
+
+Each category is trimmed from the tail (oldest/least relevant) until everything fits. Token estimation uses a 4-characters-per-token heuristic.
+
+<Aside type="note">
+Token budget fitting is automatic. Set `token_budget` once and `recall()` handles the rest -- no manual truncation needed.
+</Aside>
+
+## Scope isolation
+
+Memory operations are scoped by `ctx.memory_scope`:
+
+| Scope | Visibility |
+|-------|-----------|
+| `user` | All sessions for this user |
+| `session` | Current session only |
+| `agent` | Shared across all users for this agent |
+| `global` | Visible to everyone |
+
+User A's memories never leak to user B. Each `MemoryEvent` can override the scope or inherit it from the context.
+
+## Configuration
+
+```yaml
+# nerva.yaml
+memory:
+  hot:
+    backend: inmemory       # or redis
+    max_messages: 50
+  warm:
+    backend: sqlite         # or redis, postgres
+  cold:
+    backend: qdrant         # or pinecone, chromadb
+    embedding_model: text-embedding-3-small
+  token_budget: 4000
+```

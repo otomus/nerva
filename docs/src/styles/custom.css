@@ -1,0 +1,550 @@
+/* Google Fonts — Inter for body, JetBrains Mono for code only */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ──────────────────────────────────────────────
+   Modern minimal theme
+   Clean sans-serif body, generous whitespace
+   ────────────────────────────────────────────── */
+
+:root {
+  /* Typography — sans-serif body, mono only for code */
+  --sl-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --sl-text-body: 0.95rem;
+  --sl-line-height: 1.75;
+  --sl-line-height-headings: 1.25;
+
+  /* Accent palette */
+  --sl-color-accent-low: #0d1520;
+  --sl-color-accent: #7FC8FF;
+  --sl-color-accent-high: #b3dfff;
+
+  /* Backgrounds — slightly warmer dark, less pure black */
+  --sl-color-bg-nav: #0b1018;
+  --sl-color-bg: #0f1623;
+  --sl-color-bg-sidebar: #0b1018;
+
+  /* Text — higher contrast, softer grays */
+  --sl-color-white: #f1f5f9;
+  --sl-color-gray-1: #e2e8f0;
+  --sl-color-gray-2: #cbd5e1;
+  --sl-color-gray-3: #94a3b8;
+  --sl-color-gray-4: #64748b;
+  --sl-color-gray-5: #334155;
+  --sl-color-gray-6: #1e293b;
+  --sl-color-gray-7: #0f172a;
+  --sl-color-black: #0b1018;
+
+  /* Hairline / border — subtle, not blue-tinted */
+  --sl-color-hairline-shade: rgba(148, 163, 184, 0.15);
+  --sl-color-hairline-light: rgba(148, 163, 184, 0.08);
+
+  /* Layout — generous width */
+  --sl-content-width: 52rem;
+  --sl-sidebar-width: 17rem;
+}
+
+/* Force dark theme */
+[data-theme='light'] {
+  --sl-color-accent-low: #0d1520;
+  --sl-color-accent: #7FC8FF;
+  --sl-color-accent-high: #b3dfff;
+  --sl-color-bg-nav: #0b1018;
+  --sl-color-bg: #0f1623;
+  --sl-color-bg-sidebar: #0b1018;
+  --sl-color-white: #f1f5f9;
+  --sl-color-gray-1: #e2e8f0;
+  --sl-color-gray-2: #cbd5e1;
+  --sl-color-gray-3: #94a3b8;
+  --sl-color-gray-4: #64748b;
+  --sl-color-gray-5: #334155;
+  --sl-color-gray-6: #1e293b;
+  --sl-color-gray-7: #0f172a;
+  --sl-color-black: #0b1018;
+  --sl-color-hairline-shade: rgba(148, 163, 184, 0.15);
+  --sl-color-hairline-light: rgba(148, 163, 184, 0.08);
+  --sl-color-text: #e2e8f0;
+  --sl-color-text-accent: #7FC8FF;
+}
+
+/* ── Global typography ── */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* ── Content spacing — generous, breathable ── */
+
+.sl-markdown-content {
+  line-height: 1.8;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.sl-markdown-content > * + * {
+  margin-top: 1.75rem;
+}
+
+/* Headings — clear section breaks with generous top spacing */
+.sl-markdown-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #f1f5f9;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.sl-markdown-content h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+  margin-top: 4rem;
+  margin-bottom: 1.5rem;
+  padding-top: 4rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+/* First h2 after the page title — no line */
+.sl-markdown-content > h2:first-child,
+.sl-markdown-content > :first-child + h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Prevent double line when tabs/code blocks precede h2 */
+.sl-markdown-content .expressive-code + h2,
+.sl-markdown-content starlight-tabs + h2,
+.sl-markdown-content pre + h2 {
+  border-top-color: transparent;
+  background-image: linear-gradient(rgba(148, 163, 184, 0.1), rgba(148, 163, 184, 0.1));
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: top center;
+}
+
+.sl-markdown-content h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #e2e8f0;
+  margin-top: 5rem;
+  margin-bottom: 1rem;
+}
+
+/* First h3 right after h2 — tighter */
+.sl-markdown-content h2 + h3 {
+  margin-top: 2rem;
+}
+
+.sl-markdown-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-top: 4rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Paragraphs */
+.sl-markdown-content p {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Lists — clean spacing */
+.sl-markdown-content ul,
+.sl-markdown-content ol {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.sl-markdown-content li {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+}
+
+.sl-markdown-content li > p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Strong text */
+.sl-markdown-content strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+/* ── Code blocks ── */
+
+pre,
+.expressive-code pre {
+  background: #0b1018 !important;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.sl-markdown-content .expressive-code,
+.sl-markdown-content pre {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  border-radius: 10px;
+}
+
+code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.825rem;
+  line-height: 1.65;
+}
+
+/* Inline code — subtle, not loud */
+:not(pre) > code {
+  background: rgba(127, 200, 255, 0.08);
+  color: #93c5fd;
+  padding: 0.2em 0.45em;
+  border-radius: 5px;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+/* ── Tables — minimal ── */
+
+.sl-markdown-content table {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.sl-markdown-content th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.sl-markdown-content td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+  color: #cbd5e1;
+}
+
+.sl-markdown-content tr:hover td {
+  background: rgba(127, 200, 255, 0.03);
+}
+
+/* ── Blockquotes ── */
+
+.sl-markdown-content blockquote {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  padding: 1rem 1.5rem;
+  border-left: 2px solid rgba(127, 200, 255, 0.3);
+  background: rgba(127, 200, 255, 0.03);
+  border-radius: 0 8px 8px 0;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* ── HR dividers ── */
+
+.sl-markdown-content hr {
+  margin: 3rem 0;
+  border: none;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+/* ── Tabs — clean and snappy ── */
+
+starlight-tabs {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Remove double border between tab bar and code block */
+starlight-tabs .expressive-code pre,
+starlight-tabs pre {
+  border-top: none !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+/* ── Cards — modern, airy ── */
+
+.sl-link-card,
+.card {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 10px !important;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.sl-link-card:hover,
+.card:hover {
+  border-color: rgba(127, 200, 255, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Aside (callout) boxes — refined ── */
+
+.starlight-aside {
+  border-radius: 10px;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.9rem;
+}
+
+/* ── Main content area ── */
+
+.main-pane {
+  padding: 2.5rem 3.5rem;
+}
+
+@media (max-width: 991px) {
+  .main-pane {
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .main-pane {
+    padding: 1.25rem 1rem;
+  }
+}
+
+/* ── Page title ── */
+
+h1.page-title,
+.content-panel h1:first-child {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: #f1f5f9;
+  margin-bottom: 0.5rem;
+}
+
+/* Page description */
+.content-panel .page-description {
+  color: #94a3b8;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* ── Site title / logo ── */
+
+.site-title {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-weight: 700 !important;
+  font-size: 1.15rem !important;
+  color: #7FC8FF !important;
+  text-transform: lowercase;
+  letter-spacing: -0.02em;
+}
+
+header .site-title,
+[data-site-title] {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-weight: 700 !important;
+  color: #7FC8FF !important;
+}
+
+.title-wrapper a,
+.title-wrapper a:hover {
+  color: #7FC8FF !important;
+}
+
+/* ── Links — subtle underline on hover ── */
+
+.sl-markdown-content a {
+  color: #7FC8FF;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.sl-markdown-content a:hover {
+  color: #b3dfff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Sidebar — compact, minimal ── */
+
+nav.sidebar {
+  background: #0b1018;
+  border-right: 1px solid rgba(148, 163, 184, 0.08);
+  font-size: 0.78rem;
+}
+
+nav.sidebar ul {
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+nav.sidebar li {
+  margin: 0;
+  padding: 0;
+}
+
+/* Group titles — bold, uppercase, spaced apart */
+nav.sidebar summary,
+nav.sidebar .group-label,
+.sidebar-content summary,
+.sidebar-content .group-label {
+  font-weight: 700 !important;
+  font-size: 0.68rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8 !important;
+  padding: 0.4rem 0.5rem;
+}
+
+/* Space between sidebar groups */
+nav.sidebar > ul > li,
+.sidebar-content > ul > li {
+  margin-bottom: 1rem;
+}
+
+/* Child items — indented, smaller, tighter */
+nav.sidebar details ul,
+nav.sidebar ul ul {
+  padding-left: 1rem;
+  padding-top: 0.15rem;
+  padding-bottom: 0.15rem;
+}
+
+.sidebar-content a {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: #64748b;
+  display: block;
+}
+
+.sidebar-content a:hover {
+  background: rgba(127, 200, 255, 0.06);
+  color: #e2e8f0;
+}
+
+.sidebar-content a[aria-current='page'] {
+  background: rgba(127, 200, 255, 0.08);
+  color: #7FC8FF;
+  font-weight: 500;
+}
+
+/* ── Header / top nav ── */
+
+header.header {
+  background: #0b1018;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+/* Search bar */
+site-search button {
+  border-radius: 8px !important;
+}
+
+/* ── "Back to Home" link ── */
+
+.back-to-home {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  color: #7FC8FF;
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.back-to-home:hover {
+  opacity: 1;
+  color: #b3dfff;
+}
+
+/* ── Scrollbar — thin, subtle ── */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* ── TOC (right sidebar — "On this page") ── */
+
+starlight-toc {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+starlight-toc a {
+  color: #64748b;
+  transition: color 0.15s;
+  padding: 0.2rem 0;
+  display: block;
+}
+
+starlight-toc a:hover {
+  color: #cbd5e1;
+}
+
+starlight-toc a[aria-current='true'],
+starlight-toc a[aria-current='true']:hover {
+  color: #7FC8FF;
+  font-weight: 500;
+}
+
+/* TOC heading */
+starlight-toc h2,
+.right-sidebar-panel h2 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* TOC list spacing */
+starlight-toc ul {
+  gap: 0;
+  padding: 0;
+}
+
+starlight-toc li {
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Hero section ── */
+
+.hero {
+  padding: 2rem 0 3rem;
+}
+
+.hero .tagline {
+  color: #94a3b8;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* ── Selection highlight ── */
+
+::selection {
+  background: rgba(127, 200, 255, 0.2);
+  color: #f1f5f9;
+}

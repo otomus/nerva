@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "JetBrains Mono", monospace;
+  background-color: #030710;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glow text utility */
+.text-glow {
+  text-shadow: 0 0 30px rgba(127, 200, 255, 0.6), 0 0 60px rgba(127, 200, 255, 0.3);
+}
+
+.text-glow-subtle {
+  text-shadow: 0 0 20px rgba(127, 200, 255, 0.3);
+}
+
+/* Card glass effect */
+.glass-card {
+  background: rgba(127, 200, 255, 0.04);
+  border: 1px solid rgba(127, 200, 255, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.glass-card:hover {
+  background: rgba(127, 200, 255, 0.08);
+  border-color: rgba(127, 200, 255, 0.2);
+}
+
+/* Code block styling */
+.code-block {
+  background: rgba(10, 17, 40, 0.8);
+  border: 1px solid rgba(127, 200, 255, 0.1);
+  border-radius: 12px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030710;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(127, 200, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(127, 200, 255, 0.4);
+}
+
+/* Gradient line */
+.gradient-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(127, 200, 255, 0.3), transparent);
+}
+
+/* Grid pattern overlay */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(127, 200, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127, 200, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}

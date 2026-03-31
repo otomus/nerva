@@ -1,0 +1,66 @@
+---
+title: CLI
+description: Command-line interface for creating, developing, and managing Nerva projects.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Nerva CLI scaffolds projects, generates components, runs a dev server with hot reload, and manages template plugins.
+
+## Installation
+
+Install globally:
+
+```bash
+npm install -g nerva-cli
+```
+
+Or run without installing:
+
+```bash
+npx nerva <command>
+```
+
+<Aside type="tip">
+Using `npx nerva` is the quickest way to try Nerva without committing to a global install. It always runs the latest published version.
+</Aside>
+
+## Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `nerva new <name>` | | Create a new Nerva project |
+| `nerva generate <type> <name>` | `nerva g` | Generate a component (agent, tool, middleware, router) |
+| `nerva dev` | | Start dev server with hot reload |
+| `nerva test` | | Run tests using the language-appropriate runner |
+| `nerva list` | `nerva ls` | List all registered components |
+| `nerva plugin install <source>` | | Install a template plugin |
+| `nerva plugin list` | `nerva plugin ls` | List installed plugins |
+| `nerva plugin remove <name>` | | Remove an installed plugin |
+
+## Project structure
+
+Every Nerva project has a `nerva.yaml` at its root that declares the project name, language, and registered components:
+
+```yaml
+name: my-agent
+version: 0.1.0
+lang: python
+agents: []
+tools: []
+middleware: []
+routers: []
+```
+
+The CLI reads and writes this file automatically when generating components or listing them.
+
+## Language support
+
+The CLI supports two project languages:
+
+- **Python** — uses `pytest` for testing, flat directory layout (`agents/`, `tools/`, `middleware/`)
+- **TypeScript** — uses `vitest` for testing, `src/` prefix layout (`src/agents/`, `src/tools/`, `src/middleware/`)
+
+<Aside type="note">
+The language is set at project creation (`--lang python` or `--lang typescript`) and recorded in `nerva.yaml`. It cannot be changed after the project is created.
+</Aside>

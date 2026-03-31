@@ -1,94 +1,104 @@
 ---
 title: Nerva — Composable Agent Primitives
 description: Build your agent system — not the plumbing around it.
-template: splash
 hero:
-  tagline: 8 composable primitives that every agent orchestrator needs. Use one, use all, replace any.
+  tagline: The infrastructure every agent system needs — without owning your system.
   actions:
-    - text: Get Started (Python)
-      link: /getting-started/python/
+    - text: Get Started
+      link: /nerva/docs/getting-started/python/
       icon: right-arrow
       variant: primary
-    - text: Get Started (TypeScript)
-      link: /getting-started/typescript/
-      icon: right-arrow
     - text: View on GitHub
-      link: https://github.com/otomus/nerva
+      link: https://github.com/nerva-ai/nerva
       icon: external
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
 
-## Why Nerva?
+Every agent framework wants to own your stack. Nerva doesn't. It gives you **8 composable primitives** — routing, runtime, tools, memory, policy, and more — that drop into the web framework you already use. No lock-in, no opinions about your HTTP layer, no hidden abstractions. Build your agent system, not the plumbing around it.
 
-SDKs are too thin — you rebuild routing, execution, tools, and memory every time.
-Frameworks own your architecture — swap a component and you fight the framework.
+<Aside type="tip" title="Library, not framework">
+Nerva runs **inside** your web framework. It does not own your HTTP layer, your auth, or your API docs. You bring FastAPI, NestJS, or Express — Nerva handles the agent infrastructure underneath.
+</Aside>
 
-Nerva is the middle ground. Opinionated primitives, zero opinions on how you compose them.
+## Getting Started
 
-<CardGrid>
-  <Card title="ExecContext" icon="puzzle">
-    Request identity, permissions, memory scope, and tracing — threaded through every primitive.
-  </Card>
-  <Card title="Router" icon="magnifier">
-    Classify intent and select the right handler. Embedding, LLM, rule-based, or hybrid strategies.
-  </Card>
-  <Card title="Runtime" icon="rocket">
-    Execute agent code with isolation, timeouts, circuit breakers, and streaming support.
-  </Card>
-  <Card title="Tools" icon="setting">
-    Discover, sandbox, and invoke external tools. MCP servers and plain functions.
-  </Card>
-  <Card title="Memory" icon="document">
-    Tiered storage — hot (session), warm (episodes and facts), cold (vector search).
-  </Card>
-  <Card title="Responder" icon="pencil">
-    Format agent output for the target channel and tone.
-  </Card>
-  <Card title="Registry" icon="list-format">
-    Unified catalog of agents, tools, and plugins. Register, discover, health-check.
-  </Card>
-  <Card title="Policy" icon="approve-check">
-    Declarative safety, permissions, rate limits, cost budgets, and approval gates.
-  </Card>
+Pick your language and build your first agent in 5 minutes.
+
+<CardGrid stagger>
+  <LinkCard title="Python" description="pip install nerva — build your first agent in 5 minutes." href="/nerva/docs/getting-started/python/" />
+  <LinkCard title="TypeScript" description="npm install @nerva/sdk — full type safety, streaming-first." href="/nerva/docs/getting-started/typescript/" />
+  <LinkCard title="Go" description="Coming soon — join the discussion on GitHub." href="https://github.com/nerva-ai/nerva/discussions" />
 </CardGrid>
+
+## The 8 Primitives
+
+Everything you need, nothing you don't. Each primitive is independent, composable, and replaceable.
+
+<CardGrid stagger>
+  <LinkCard title="ExecContext" description="Request identity, permissions, memory scope, and tracing — threaded through every primitive." href="/nerva/docs/primitives/context/" />
+  <LinkCard title="Router" description="Classify intent and select the right handler. Embedding, LLM, rule-based, or hybrid strategies." href="/nerva/docs/primitives/router/" />
+  <LinkCard title="Runtime" description="Execute agent code with isolation, timeouts, circuit breakers, and streaming support." href="/nerva/docs/primitives/runtime/" />
+  <LinkCard title="Tools" description="Discover, sandbox, and invoke external tools. MCP servers, functions, composites." href="/nerva/docs/primitives/tools/" />
+  <LinkCard title="Memory" description="Tiered storage — hot (session), warm (episodes and facts), cold (vector search)." href="/nerva/docs/primitives/memory/" />
+  <LinkCard title="Responder" description="Format agent output for the target channel and tone." href="/nerva/docs/primitives/responder/" />
+  <LinkCard title="Registry" description="Unified catalog of agents, tools, and plugins. Register, discover, health-check." href="/nerva/docs/primitives/registry/" />
+  <LinkCard title="Policy" description="Declarative safety, permissions, rate limits, cost budgets, and approval gates." href="/nerva/docs/primitives/policy/" />
+</CardGrid>
+
+<Aside type="note" title="Use what you need">
+You don't need all 8. Use one primitive, use all of them, or replace any with your own implementation. Every primitive has a clean interface you can swap.
+</Aside>
 
 ## How It Works
 
-```
-         Message
-           |
-    +------v------+
-    | ExecContext  | <-- user identity, permissions, memory scope, trace ID
-    +------+------+
-           |
-    +------v------+
-    |   Policy     | <-- rate limit, budget check, approval gate
-    +------+------+
-           |
-    +------v------+
-    |    Router    | <-- classify intent, select handler (from Registry)
-    +------+------+
-           |
-    +------v------+
-    |   Runtime    | <-- execute handler (subprocess / in-process / container)
-    |     +- Tools | <-- discover from Registry, sandbox, call
-    |     +- Memory| <-- read context, write results
-    +------+------+
-           |
-    +------v------+
-    |  Responder   | <-- format for channel + tone
-    +------+------+
-           |
-         Output
-```
-
-## Library, Not Server
-
-Nerva runs **inside** your web framework. It does not own your HTTP layer, your auth, or your API docs.
+<object type="image/svg+xml" data="/nerva/docs/architecture-flow.svg" style="width:100%;max-width:800px;margin:2rem auto;display:block;">Architecture flow diagram</object>
 
 ```
 FastAPI / NestJS / Express   (HTTP, auth, sessions, swagger)
-  +-- Nerva                  (routing, runtime, tools, memory, policy)
-       +-- LLM providers, MCP servers, subprocess agents
+  └── Nerva                  (routing, runtime, tools, memory, policy)
+       └── LLM providers, MCP servers, subprocess agents
 ```
+
+## What's in the Box
+
+Each primitive ships with multiple built-in strategies. Pick the one that fits, or write your own.
+
+<CardGrid>
+  <Card title="4 Router Strategies" icon="magnifier">
+    Embedding similarity, LLM classification, rule-based pattern matching, and hybrid (combine any).
+  </Card>
+  <Card title="3 Runtime Modes" icon="rocket">
+    In-process, subprocess isolation, and container sandboxing — with circuit breakers on all three.
+  </Card>
+  <Card title="3 Tool Managers" icon="setting">
+    MCP server pools, plain function registries, and composite tool chains.
+  </Card>
+  <Card title="3 Memory Tiers" icon="document">
+    Hot (session state), warm (episodes and extracted facts), cold (vector search over history).
+  </Card>
+  <Card title="3 Responder Types" icon="pencil">
+    Plain text, structured JSON, and streaming — each with channel-aware formatting.
+  </Card>
+  <Card title="3 Registry Backends" icon="list-format">
+    In-memory, file-based, and remote (HTTP/gRPC) — all behind the same interface.
+  </Card>
+  <Card title="3 Policy Engines" icon="approve-check">
+    Static rules, OPA integration, and LLM-as-judge — stack them for defense in depth.
+  </Card>
+</CardGrid>
+
+<Aside type="tip" title="Scaffold in seconds">
+```bash
+npx nerva new my-agent --lang python
+```
+The CLI generates a working project with your chosen primitives, a test suite, and a dev server. Supports `--lang python`, `--lang typescript`, and `--template` for common patterns.
+</Aside>
+
+## Next Steps
+
+<CardGrid>
+  <LinkCard title="Architecture" description="How the primitives compose, data flow, and extension points." href="/nerva/docs/architecture/" />
+  <LinkCard title="Cookbook" description="Recipes for common patterns — multi-agent, RAG, human-in-the-loop, and more." href="/nerva/docs/cookbook/" />
+  <LinkCard title="Migration Guide" description="Moving from LangChain, CrewAI, or a custom setup? Start here." href="/nerva/docs/migration/" />
+</CardGrid>

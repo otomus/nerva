@@ -1,0 +1,405 @@
+---
+title: Responder
+description: Format agent output for target channels and tone.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+The Responder takes raw `AgentResult` from the runtime and formats it for the delivery channel.
+
+## Protocol
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  class Responder(Protocol):
+      async def format(
+          self, output: AgentResult, channel: Channel, ctx: ExecContext
+      ) -> Response:
+          ...
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  export interface Responder {
+    format(output: AgentResult, channel: Channel, ctx: ExecContext): Promise<Response>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type Responder interface {
+      Format(ctx *nctx.ExecContext, output runtime.AgentResult, channel Channel) (Response, error)
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### Value types
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  @dataclass(frozen=True)
+  class Channel:
+      name: str                    # "api", "slack", "websocket", "sms"
+      supports_markdown: bool      # can render **bold**, `code`, etc.
+      supports_media: bool         # can display images, files, cards
+      max_length: int              # 0 = unlimited
+
+  @dataclass
+  class Response:
+      text: str
+      channel: Channel
+      media: list[str]             # URLs or base64 attachments
+      metadata: dict[str, str]     # channel-specific extras
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  export interface Channel {
+    readonly name: string;
+    readonly supportsMarkdown: boolean;
+    readonly supportsMedia: boolean;
+    readonly maxLength: number;          // 0 = unlimited
+  }
+
+  export interface Response {
+    readonly text: string;
+    readonly channel: Channel;
+    readonly media: ReadonlyArray<string>;
+    readonly metadata: Readonly<Record<string, string>>;
+  }
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  type Channel struct {
+      Name             string
+      SupportsMarkdown bool
+      SupportsMedia    bool
+      MaxLength        int // 0 = unlimited
+  }
+
+  type Response struct {
+      Text     string
+      Channel  Channel
+      Media    []string
+      Metadata map[string]string
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+Built-in channel presets:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.responder import API_CHANNEL, WEBSOCKET_CHANNEL
+
+  API_CHANNEL       # name="api", markdown=False, media=True, max_length=0
+  WEBSOCKET_CHANNEL # name="websocket", markdown=True, media=True, max_length=0
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { API_CHANNEL, WEBSOCKET_CHANNEL } from "nerva/responder";
+
+  API_CHANNEL       // name="api", markdown=false, media=true, maxLength=0
+  WEBSOCKET_CHANNEL // name="websocket", markdown=true, media=true, maxLength=0
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/responder"
+
+  responder.APIChannel       // Name="api", SupportsMarkdown=false, SupportsMedia=true
+  responder.WebSocketChannel // Name="websocket", SupportsMarkdown=true, SupportsMedia=true
+  ```
+  </TabItem>
+</Tabs>
+
+## Strategies
+
+### PassthroughResponder
+
+<Aside type="tip">
+`PassthroughResponder` is the right choice for APIs and programmatic consumers. It adds zero overhead -- agent output passes through untouched.
+</Aside>
+
+Returns the raw agent output with no transformation. Use for APIs and programmatic consumers.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.responder.passthrough import PassthroughResponder
+
+  responder = PassthroughResponder()
+  response = await responder.format(agent_result, API_CHANNEL, ctx)
+  # response.text == agent_result.output (untouched)
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { PassthroughResponder } from "nerva/responder/passthrough";
+  import { API_CHANNEL } from "nerva/responder";
+
+  const responder = new PassthroughResponder();
+  const response = await responder.format(agentResult, API_CHANNEL, ctx);
+  // response.text === agentResult.output (untouched)
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/responder"
+
+  r := responder.NewPassthroughResponder()
+  response, err := r.Format(ctx, agentResult, responder.APIChannel)
+  // response.Text == agentResult.Output (untouched)
+  ```
+  </TabItem>
+</Tabs>
+
+### ToneResponder
+
+<Aside type="note">
+ToneResponder makes an LLM call on every response to rewrite the phrasing. This adds latency and cost -- use it for user-facing channels where personality matters, not for internal agent-to-agent communication.
+</Aside>
+
+Rewrites the output through an LLM to apply personality and tone. The raw content is preserved; only phrasing changes.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.responder.tone import ToneResponder
+
+  responder = ToneResponder(
+      llm=my_llm_client,
+      system_prompt="You are a friendly travel assistant. Keep responses concise and use casual language.",
+  )
+
+  response = await responder.format(agent_result, WEBSOCKET_CHANNEL, ctx)
+  # Raw: "Flight LH123 departs at 14:30 from TLV to BER"
+  # Toned: "Found you a flight! LH123 leaves Tel Aviv at 2:30 PM heading to Berlin."
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { ToneResponder } from "nerva/responder/tone";
+  import { WEBSOCKET_CHANNEL } from "nerva/responder";
+
+  const responder = new ToneResponder(
+    myLlmRewriteFn,  // (systemPrompt: string, text: string) => Promise<string>
+    "friendly and casual",
+  );
+
+  const response = await responder.format(agentResult, WEBSOCKET_CHANNEL, ctx);
+  // Raw: "Flight LH123 departs at 14:30 from TLV to BER"
+  // Toned: "Found you a flight! LH123 leaves Tel Aviv at 2:30 PM heading to Berlin."
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // The Go SDK does not include a ToneResponder out of the box.
+  // Implement the Responder interface and call your LLM client
+  // inside Format() to apply tone rewriting.
+  type ToneResponder struct {
+      Rewrite func(systemPrompt, text string) (string, error)
+      Tone    string
+  }
+
+  func (t *ToneResponder) Format(
+      ctx *nctx.ExecContext,
+      output runtime.AgentResult,
+      channel responder.Channel,
+  ) (responder.Response, error) {
+      rewritten, err := t.Rewrite(
+          fmt.Sprintf("Rewrite the following text in a %s tone.", t.Tone),
+          output.Output,
+      )
+      if err != nil {
+          return responder.Response{}, err
+      }
+      return responder.Response{Text: rewritten, Channel: channel}, nil
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+### MultimodalResponder
+
+Enriches output with media attachments, cards, and buttons based on channel capabilities. Falls back to text-only for channels that do not support media.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.responder.multimodal import MultimodalResponder
+
+  responder = MultimodalResponder(
+      media_resolver=my_media_resolver,  # resolves media references to URLs
+  )
+
+  response = await responder.format(agent_result, slack_channel, ctx)
+  # response.media = ["https://cdn.example.com/weather-map-berlin.png"]
+  # response.metadata = {"blocks": [...]}  # Slack Block Kit
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import {
+    MultimodalResponder,
+    createTextBlock,
+    createImageBlock,
+    createCardBlock,
+  } from "nerva/responder/multimodal";
+
+  const responder = new MultimodalResponder([
+    createTextBlock("Here are the results:"),
+    createImageBlock("https://cdn.example.com/chart.png", "Sales chart"),
+    createCardBlock("Summary", "Revenue increased 15%"),
+  ]);
+
+  const response = await responder.format(agentResult, slackChannel, ctx);
+  // response.media = ["https://cdn.example.com/chart.png"]
+  // response.metadata.blocks contains serialized block data
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // The Go SDK does not include a MultimodalResponder out of the box.
+  // Implement the Responder interface to handle media enrichment
+  // based on channel.SupportsMedia and channel.SupportsMarkdown.
+  func (m *MyMultimodalResponder) Format(
+      ctx *nctx.ExecContext,
+      output runtime.AgentResult,
+      channel responder.Channel,
+  ) (responder.Response, error) {
+      media := []string{}
+      if channel.SupportsMedia {
+          media = resolveMediaURLs(output)
+      }
+      return responder.Response{
+          Text:    output.Output,
+          Channel: channel,
+          Media:   media,
+      }, nil
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+## Channel awareness
+
+Define custom channels to control formatting:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  sms_channel = Channel(
+      name="sms",
+      supports_markdown=False,
+      supports_media=False,
+      max_length=160,
+  )
+
+  slack_channel = Channel(
+      name="slack",
+      supports_markdown=True,
+      supports_media=True,
+      max_length=4000,
+  )
+
+  # Responder adapts output to each channel's constraints
+  sms_response = await responder.format(result, sms_channel, ctx)   # truncated to 160 chars, no markdown
+  slack_response = await responder.format(result, slack_channel, ctx) # full markdown + images
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { createChannel } from "nerva/responder";
+
+  const smsChannel = createChannel("sms", {
+    supportsMarkdown: false,
+    supportsMedia: false,
+    maxLength: 160,
+  });
+
+  const slackChannel = createChannel("slack", {
+    supportsMarkdown: true,
+    supportsMedia: true,
+    maxLength: 4000,
+  });
+
+  // Responder adapts output to each channel's constraints
+  const smsResponse = await responder.format(result, smsChannel, ctx);   // truncated to 160 chars
+  const slackResponse = await responder.format(result, slackChannel, ctx); // full markdown + images
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  smsChannel := responder.Channel{
+      Name:             "sms",
+      SupportsMarkdown: false,
+      SupportsMedia:    false,
+      MaxLength:        160,
+  }
+
+  slackChannel := responder.Channel{
+      Name:             "slack",
+      SupportsMarkdown: true,
+      SupportsMedia:    true,
+      MaxLength:        4000,
+  }
+
+  // Responder adapts output to each channel's constraints
+  smsResp, _ := r.Format(ctx, result, smsChannel)   // truncated to 160 chars
+  slackResp, _ := r.Format(ctx, result, slackChannel) // full markdown + images
+  ```
+  </TabItem>
+</Tabs>
+
+## Streaming
+
+When `ctx.stream` is set, the Responder formats each chunk as it arrives rather than waiting for the full output:
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  ctx = ExecContext.create(user_id="user_1", stream=my_stream_sink)
+
+  # Chunks flow through: Runtime -> Responder.format_chunk() -> ctx.stream -> client
+  async for chunk in orchestrator.stream("Book a flight", ctx):
+      await websocket.send(chunk)
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { StreamingResponder } from "nerva/responder/streaming";
+
+  const streamer = new StreamingResponder("websocket");
+
+  // Format individual chunks for the target transport
+  const formatted = streamer.formatChunk("partial response text");
+  // '{"content":"partial response text"}'
+
+  // SSE format
+  const sseStreamer = new StreamingResponder("sse");
+  const sseFormatted = sseStreamer.formatChunk("partial response text");
+  // 'data: {"content":"partial response text"}\n\n'
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  // Stream chunks manually using the Responder interface.
+  // Format each chunk as it arrives and write to the connection.
+  for chunk := range chunks {
+      resp, err := r.Format(ctx, runtime.AgentResult{Output: chunk}, wsChannel)
+      if err != nil {
+          break
+      }
+      conn.Write([]byte(resp.Text))
+  }
+  ```
+  </TabItem>
+</Tabs>

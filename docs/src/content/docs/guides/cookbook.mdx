@@ -3,6 +3,8 @@ title: Cookbook
 description: Common patterns for building agent systems with Nerva.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 ## Fan-out pattern
 
 Delegate to multiple agents in parallel, merge results.
@@ -26,6 +28,10 @@ async def research_handler(input: AgentInput, ctx: ExecContext) -> str:
 ```
 
 Each delegate call creates a child ExecContext, so traces show parallel execution clearly.
+
+<Aside type="tip">
+`asyncio.gather` is safe here because each delegate gets its own child ExecContext. There is no shared mutable state between parallel branches -- each has independent tracing, timeout, and memory scope.
+</Aside>
 
 ## Retry pattern
 
@@ -155,6 +161,10 @@ async def streaming_agent(input: AgentInput, ctx: ExecContext):
     ):
         yield token
 ```
+
+<Aside type="note">
+All Nerva streaming is based on async generators. Both the orchestrator's `stream()` method and agent handlers use `async for` / `yield`. There is no callback-based streaming API.
+</Aside>
 
 ## Multi-language agents
 

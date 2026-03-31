@@ -3,7 +3,13 @@ title: Primitives Overview
 description: The 8 composable primitives that every agent orchestrator needs.
 ---
 
-Nerva provides 8 primitives. Each is a **Protocol** (Python) or **interface** (TypeScript) with one or more default implementations. Use one, use all, replace any.
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Nerva provides 8 primitives. Each is a **Protocol** (Python), **interface** (TypeScript), or **interface** (Go) with one or more default implementations. Use one, use all, replace any.
+
+<Aside type="note">
+Every primitive is a Protocol (Python) / interface (TypeScript/Go). Swap any implementation without touching the rest of your system.
+</Aside>
 
 ## The Primitives
 
@@ -20,6 +26,49 @@ Every method in every primitive receives an `ExecContext`. It carries:
 
 Without it, you end up passing 6 separate arguments to every function, or building a god-object later. Every project that starts without this adds it in v2.
 
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva import ExecContext
+
+  ctx = ExecContext.create(
+      user_id="user_123",
+      session_id="session_abc",
+      memory_scope="session",
+      timeout_seconds=30,
+  )
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { ExecContext } from "nerva";
+
+  const ctx = ExecContext.create({
+    userId: "user_123",
+    sessionId: "session_abc",
+    memoryScope: "session",
+    timeoutSeconds: 30,
+  });
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import nctx "github.com/otomus/nerva/go/context"
+
+  ctx := nctx.NewContext(
+      nctx.WithUserID("user_123"),
+      nctx.WithSessionID("session_abc"),
+      nctx.WithMemoryScope(nctx.ScopeSession),
+      nctx.WithTimeout(30),
+  )
+  ```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+Start with `ExecContext.create()` — it's the one thing every Nerva call needs.
+</Aside>
+
 ### 1. Router — Intent Classification
 
 Takes a raw message and returns a structured intent with confidence score and matched handler.
@@ -32,6 +81,57 @@ Takes a raw message and returns a structured intent with confidence score and ma
 | `EmbeddingRouter` | Cosine similarity against handler descriptions | Fast, no LLM call, needs embedding model |
 | `LLMRouter` | Structured output from LLM with handler catalog | Accurate, slower, costs tokens |
 | `HybridRouter` | Embedding pre-filter then LLM re-rank | Best accuracy, moderate cost |
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.router.rule import RuleRouter, Rule
+
+  router = RuleRouter(
+      rules=[
+          Rule(pattern=r"weather", handler="weather_agent", intent="weather"),
+          Rule(pattern=r"calendar|schedule", handler="calendar_agent", intent="calendar"),
+      ],
+      default_handler="general_agent",
+  )
+
+  result = await router.classify("What's the weather?", ctx)
+  # intent="weather", confidence=1.0, handler="weather_agent"
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { RuleRouter } from "nerva/router/rule";
+
+  const router = new RuleRouter(
+    [
+      { pattern: "weather", handler: "weather_agent", intent: "weather" },
+      { pattern: "calendar|schedule", handler: "calendar_agent", intent: "calendar" },
+    ],
+    "general_agent",
+  );
+
+  const result = await router.classify("What's the weather?", ctx);
+  // intent="weather", confidence=1.0, handler="weather_agent"
+  ```
+  </TabItem>
+  <TabItem label="Go">
+  ```go
+  import "github.com/otomus/nerva/go/router"
+
+  r, err := router.NewRuleRouter(
+      []router.Rule{
+          {Pattern: "weather", Handler: "weather_agent", Intent: "weather"},
+          {Pattern: "calendar|schedule", Handler: "calendar_agent", Intent: "calendar"},
+      },
+      "general_agent",
+  )
+
+  result, err := r.Classify(ctx, "What's the weather?")
+  // Intent="weather", Confidence=1.0, Handler="weather_agent"
+  ```
+  </TabItem>
+</Tabs>
 
 ### 2. Runtime — Agent Execution
 
@@ -122,3 +222,7 @@ Message -> ExecContext -> Policy -> Router -> Runtime (Tools + Memory) -> Respon
 ```
 
 But you do not need the Orchestrator. Use any primitive standalone, compose a subset, or build your own orchestration logic.
+
+<Aside type="tip">
+The Orchestrator is optional. Many teams start by using Router + Runtime directly and add the Orchestrator later when they need middleware and streaming.
+</Aside>

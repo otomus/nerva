@@ -1,0 +1,11 @@
+---
+/**
+ * Empty component that replaces Starlight's theme toggle.
+ * Forces dark mode only — no light/dark switch shown.
+ */
+---
+<script is:inline>
+  // Force dark theme on every page load
+  document.documentElement.dataset.theme = 'dark';
+  window.StarlightThemeProvider?.updatePickers?.('dark');
+</script>

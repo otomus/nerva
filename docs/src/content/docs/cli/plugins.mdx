@@ -1,0 +1,119 @@
+---
+title: Plugins
+description: Extend nerva generate with custom component types via template plugins.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The plugin system lets you add custom component types to `nerva generate`. Plugins are stored locally in `.nerva/plugins/` and discovered automatically.
+
+## Plugin commands
+
+```bash
+nerva plugin install <source>   # Install from npm or local path
+nerva plugin list               # List installed plugins
+nerva plugin ls                 # Alias for list
+nerva plugin remove <name>      # Remove an installed plugin
+```
+
+## Installing plugins
+
+### From a local directory
+
+```bash
+nerva plugin install ./my-plugin
+nerva plugin install /absolute/path/to/plugin
+```
+
+### From npm
+
+```bash
+nerva plugin install nerva-plugin-graphql
+```
+
+The CLI runs `npm pack` to download the package, extracts it, and copies it into `.nerva/plugins/<name>`.
+
+<Aside type="tip">
+When developing a plugin locally, use a relative path (`./my-plugin`) to install it. This copies the files into `.nerva/plugins/`, so you will need to re-install after making changes to the source.
+</Aside>
+
+## Plugin manifest
+
+Every plugin must contain a `nerva-plugin.json` at its root:
+
+```json
+{
+  "name": "nerva-plugin-graphql",
+  "version": "1.0.0",
+  "templates": [
+    {
+      "type": "resolver",
+      "files": ["resolver.py.tmpl", "resolver.ts.tmpl"]
+    },
+    {
+      "type": "schema",
+      "files": ["schema.py.tmpl", "schema.ts.tmpl"]
+    }
+  ]
+}
+```
+
+### Manifest fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Plugin name (unique identifier) |
+| `version` | Yes | Semantic version string |
+| `templates` | Yes | Array of template definitions |
+| `templates[].type` | Yes | Component type name (used in `nerva g <type> <name>`) |
+| `templates[].files` | Yes | Template files for this type (must be non-empty) |
+
+<Aside type="note">
+Plugin type names must not conflict with the built-in types (`agent`, `tool`, `middleware`, `router`). If a plugin declares a conflicting type, the built-in template takes precedence.
+</Aside>
+
+## Plugin storage
+
+Plugins are installed into the project's `.nerva/plugins/` directory:
+
+```
+.nerva/
+  plugins/
+    nerva-plugin-graphql/
+      nerva-plugin.json
+      resolver.py.tmpl
+      resolver.ts.tmpl
+      schema.py.tmpl
+      schema.ts.tmpl
+```
+
+## Listing plugins
+
+```bash
+nerva plugin list
+```
+
+Output:
+
+```
+Installed plugins:
+
+  nerva-plugin-graphql (v1.0.0)
+    types: resolver, schema
+```
+
+## Removing plugins
+
+```bash
+nerva plugin remove nerva-plugin-graphql
+```
+
+This deletes the plugin directory from `.nerva/plugins/`. The command fails if the plugin is not installed.
+
+## Creating a plugin
+
+1. Create a directory with a `nerva-plugin.json` manifest
+2. Add template files (`.tmpl` extension) for each component type
+3. Templates receive the same variables as built-in generators: `name`, `class_name`, `type`, `description`
+4. Test locally with `nerva plugin install ./your-plugin`
+5. Publish to npm for others to use

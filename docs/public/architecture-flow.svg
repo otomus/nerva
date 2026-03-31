@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520">
+  <style>
+    /* Background */
+    .bg { fill: #030710; }
+
+    /* Box styling */
+    .box {
+      fill: none;
+      stroke: #7FC8FF;
+      stroke-width: 1.5;
+      rx: 10;
+      ry: 10;
+      opacity: 0;
+    }
+    .box-fill {
+      fill: rgba(127, 200, 255, 0.06);
+      stroke: #7FC8FF;
+      stroke-width: 1.5;
+      rx: 10;
+      ry: 10;
+      opacity: 0;
+    }
+
+    /* Labels */
+    .label {
+      fill: #7FC8FF;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 14px;
+      text-anchor: middle;
+      dominant-baseline: central;
+      opacity: 0;
+    }
+    .label-sub {
+      fill: #5AA8DD;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 12px;
+      text-anchor: middle;
+      dominant-baseline: central;
+      opacity: 0;
+    }
+    .label-terminal {
+      fill: #A0D4FF;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      text-anchor: middle;
+      dominant-baseline: central;
+      opacity: 0;
+    }
+
+    /* Connecting lines */
+    .connector {
+      stroke: #3A6A8A;
+      stroke-width: 1.2;
+      fill: none;
+      stroke-dasharray: 40;
+      stroke-dashoffset: 40;
+    }
+    .connector-branch {
+      stroke: #2E5570;
+      stroke-width: 1;
+      fill: none;
+      stroke-dasharray: 30;
+      stroke-dashoffset: 30;
+    }
+
+    /* Arrowheads */
+    .arrow { fill: #3A6A8A; opacity: 0; }
+    .arrow-branch { fill: #2E5570; opacity: 0; }
+
+    /* Glow effect on boxes */
+    .glow {
+      filter: drop-shadow(0 0 6px rgba(127, 200, 255, 0.15));
+    }
+
+    /* --- Fade-in animations for boxes and labels --- */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- Line draw animation --- */
+    @keyframes drawLine {
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* --- Arrow fade --- */
+    @keyframes arrowIn {
+      to { opacity: 1; }
+    }
+
+    /* Step 0: Message (terminal) */
+    .s0 { animation: fadeIn 0.35s ease-out 0.1s forwards; }
+
+    /* Connector 0->1 */
+    .c01 { animation: drawLine 0.2s ease-out 0.3s forwards; }
+    .a01 { animation: arrowIn 0.15s ease-out 0.45s forwards; }
+
+    /* Step 1: ExecContext */
+    .s1 { animation: fadeIn 0.35s ease-out 0.45s forwards; }
+
+    /* Connector 1->2 */
+    .c12 { animation: drawLine 0.2s ease-out 0.65s forwards; }
+    .a12 { animation: arrowIn 0.15s ease-out 0.8s forwards; }
+
+    /* Step 2: Policy */
+    .s2 { animation: fadeIn 0.35s ease-out 0.8s forwards; }
+
+    /* Connector 2->3 */
+    .c23 { animation: drawLine 0.2s ease-out 1.0s forwards; }
+    .a23 { animation: arrowIn 0.15s ease-out 1.15s forwards; }
+
+    /* Step 3: Router */
+    .s3 { animation: fadeIn 0.35s ease-out 1.15s forwards; }
+
+    /* Connector 3->4 */
+    .c34 { animation: drawLine 0.2s ease-out 1.35s forwards; }
+    .a34 { animation: arrowIn 0.15s ease-out 1.5s forwards; }
+
+    /* Step 4: Runtime */
+    .s4 { animation: fadeIn 0.35s ease-out 1.5s forwards; }
+
+    /* Branch connectors from Runtime */
+    .c4t { animation: drawLine 0.25s ease-out 1.75s forwards; }
+    .a4t { animation: arrowIn 0.15s ease-out 1.95s forwards; }
+    .c4m { animation: drawLine 0.25s ease-out 1.85s forwards; }
+    .a4m { animation: arrowIn 0.15s ease-out 2.05s forwards; }
+
+    /* Sub-boxes: Tools and Memory */
+    .s4t { animation: fadeIn 0.3s ease-out 1.95s forwards; }
+    .s4m { animation: fadeIn 0.3s ease-out 2.05s forwards; }
+
+    /* Connector 4->5 */
+    .c45 { animation: drawLine 0.2s ease-out 2.15s forwards; }
+    .a45 { animation: arrowIn 0.15s ease-out 2.3s forwards; }
+
+    /* Step 5: Responder */
+    .s5 { animation: fadeIn 0.35s ease-out 2.3s forwards; }
+
+    /* Connector 5->6 */
+    .c56 { animation: drawLine 0.2s ease-out 2.5s forwards; }
+    .a56 { animation: arrowIn 0.15s ease-out 2.65s forwards; }
+
+    /* Step 6: Output (terminal) */
+    .s6 { animation: fadeIn 0.35s ease-out 2.65s forwards; }
+  </style>
+
+  <!-- Background -->
+  <rect class="bg" width="800" height="520" />
+
+  <!-- ==================== MAIN PIPELINE ==================== -->
+  <!-- Positions: centered at x=320, y steps at 40, 100, 160, 220, 300, 400, 460 -->
+
+  <!-- Step 0: Message (terminal label) -->
+  <text class="label-terminal s0" x="320" y="40">Message</text>
+
+  <!-- Connector 0 -> 1 -->
+  <line class="connector c01" x1="320" y1="52" x2="320" y2="78" />
+  <polygon class="arrow a01" points="314,76 320,84 326,76" />
+
+  <!-- Step 1: ExecContext -->
+  <g class="glow">
+    <rect class="box-fill s1" x="240" y="86" width="160" height="38" />
+  </g>
+  <text class="label s1" x="320" y="105">ExecContext</text>
+
+  <!-- Connector 1 -> 2 -->
+  <line class="connector c12" x1="320" y1="124" x2="320" y2="148" />
+  <polygon class="arrow a12" points="314,146 320,154 326,146" />
+
+  <!-- Step 2: Policy -->
+  <g class="glow">
+    <rect class="box-fill s2" x="240" y="156" width="160" height="38" />
+  </g>
+  <text class="label s2" x="320" y="175">Policy</text>
+
+  <!-- Connector 2 -> 3 -->
+  <line class="connector c23" x1="320" y1="194" x2="320" y2="218" />
+  <polygon class="arrow a23" points="314,216 320,224 326,216" />
+
+  <!-- Step 3: Router -->
+  <g class="glow">
+    <rect class="box-fill s3" x="240" y="226" width="160" height="38" />
+  </g>
+  <text class="label s3" x="320" y="245">Router</text>
+
+  <!-- Connector 3 -> 4 -->
+  <line class="connector c34" x1="320" y1="264" x2="320" y2="288" />
+  <polygon class="arrow a34" points="314,286 320,294 326,286" />
+
+  <!-- Step 4: Runtime (larger box) -->
+  <g class="glow">
+    <rect class="box-fill s4" x="230" y="296" width="180" height="50" />
+  </g>
+  <text class="label s4" x="320" y="321">Runtime</text>
+
+  <!-- ==================== BRANCHES ==================== -->
+
+  <!-- Branch: Runtime -> Tools -->
+  <path class="connector-branch c4t" d="M 410,316 L 480,316 L 520,316" />
+  <polygon class="arrow-branch a4t" points="518,310 526,316 518,322" />
+  <g class="glow">
+    <rect class="box-fill s4t" x="530" y="298" width="120" height="36" />
+  </g>
+  <text class="label-sub s4t" x="590" y="316">Tools</text>
+
+  <!-- Branch: Runtime -> Memory -->
+  <path class="connector-branch c4m" d="M 410,330 L 480,330 L 520,360" />
+  <polygon class="arrow-branch a4m" points="515,353 524,363 519,367" />
+  <g class="glow">
+    <rect class="box-fill s4m" x="530" y="350" width="120" height="36" />
+  </g>
+  <text class="label-sub s4m" x="590" y="368">Memory</text>
+
+  <!-- ==================== CONTINUE PIPELINE ==================== -->
+
+  <!-- Connector 4 -> 5 -->
+  <line class="connector c45" x1="320" y1="346" x2="320" y2="388" />
+  <polygon class="arrow a45" points="314,386 320,394 326,386" />
+
+  <!-- Step 5: Responder -->
+  <g class="glow">
+    <rect class="box-fill s5" x="240" y="396" width="160" height="38" />
+  </g>
+  <text class="label s5" x="320" y="415">Responder</text>
+
+  <!-- Connector 5 -> 6 -->
+  <line class="connector c56" x1="320" y1="434" x2="320" y2="458" />
+  <polygon class="arrow a56" points="314,456 320,464 326,456" />
+
+  <!-- Step 6: Output (terminal label) -->
+  <text class="label-terminal s6" x="320" y="480">Output</text>
+</svg>
