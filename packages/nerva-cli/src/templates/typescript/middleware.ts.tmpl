@@ -1,0 +1,24 @@
+/**
+ * {{name}} middleware.
+ *
+ * {{description}}
+ */
+
+import { Middleware, Context, Response, NextHandler } from 'nerva';
+
+/** {{description}} */
+export class {{class_name}} implements Middleware {
+  readonly name = '{{name}}';
+
+  /**
+   * Process the request, optionally modifying context or response.
+   *
+   * @param ctx - The request context
+   * @param next - The next middleware or agent in the chain
+   * @returns The response, possibly modified
+   */
+  async handle(ctx: Context, next: NextHandler): Promise<Response> {
+    const response = await next(ctx);
+    return response;
+  }
+}

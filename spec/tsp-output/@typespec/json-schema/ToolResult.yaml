@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolResult.yaml
+type: object
+properties:
+  status:
+    $ref: ToolStatus.yaml
+    description: Outcome status.
+  output:
+    type: string
+    description: Tool output (string or structured).
+  error:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: Error message if status is not SUCCESS.
+  duration_ms:
+    type: number
+    description: Execution time in milliseconds.
+required:
+  - status
+description: Result from executing a tool.

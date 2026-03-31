@@ -1,0 +1,48 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: RegistryPatch.yaml
+type: object
+properties:
+  description:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: New description, or null to leave unchanged.
+  metadata:
+    anyOf:
+      - $ref: "#/$defs/RecordString"
+      - type: "null"
+    description: New metadata dict, or null to leave unchanged.
+  health:
+    anyOf:
+      - $ref: HealthStatus.yaml
+      - type: "null"
+    description: New health status, or null to leave unchanged.
+  enabled:
+    anyOf:
+      - type: boolean
+      - type: "null"
+    description: New enabled flag, or null to leave unchanged.
+  requirements:
+    anyOf:
+      - type: array
+        items:
+          type: string
+      - type: "null"
+    description: New requirements list, or null to leave unchanged.
+  permissions:
+    anyOf:
+      - type: array
+        items:
+          type: string
+      - type: "null"
+    description: New permissions list, or null to leave unchanged.
+description: |-
+  Partial update for a registry entry.
+
+  Only non-null fields are applied when passed to Registry.update().
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

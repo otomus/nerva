@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: MemoryEvent.yaml
+type: object
+properties:
+  content:
+    type: string
+    description: The content to store.
+  tier:
+    $ref: MemoryTier.yaml
+    description: Target storage tier.
+  scope:
+    anyOf:
+      - $ref: Scope.yaml
+      - type: "null"
+    description: Access scope for this memory. Null inherits from ctx.
+  tags:
+    type: array
+    items:
+      type: string
+    description: Metadata tags for filtering and retrieval.
+  source:
+    type: string
+    description: Origin of this memory (agent name, tool, user).
+required:
+  - content
+  - tier
+description: |-
+  An event to be stored in memory.
+
+  Immutable once created. A null scope means "inherit from the execution context".

@@ -1,0 +1,77 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ExecContext.yaml
+type: object
+properties:
+  request_id:
+    type: string
+    description: Unique identifier for this individual request.
+  trace_id:
+    type: string
+    description: Groups related requests into a single trace.
+  user_id:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: Authenticated user, or null for anonymous.
+  session_id:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: Conversation/session identifier, or null.
+  permissions:
+    $ref: Permissions.yaml
+    description: Capability set governing tool/agent access.
+  memory_scope:
+    $ref: Scope.yaml
+    description: Isolation boundary for stored state.
+  spans:
+    type: array
+    items:
+      $ref: Span.yaml
+    description: Ordered list of timed work segments.
+  events:
+    type: array
+    items:
+      $ref: Event.yaml
+    description: Ordered list of point-in-time occurrences.
+  token_usage:
+    $ref: TokenUsage.yaml
+    description: Accumulated LLM token consumption.
+  created_at:
+    type: number
+    description: Unix timestamp when this context was created.
+  timeout_at:
+    anyOf:
+      - type: number
+      - type: "null"
+    description: Unix timestamp after which the context is timed out, or null.
+  cancelled:
+    type: boolean
+    description: Whether cancellation has been signalled.
+  metadata:
+    $ref: "#/$defs/RecordString"
+    description: Arbitrary string tags for policy conditions and routing.
+required:
+  - request_id
+  - trace_id
+  - user_id
+  - session_id
+  - permissions
+  - memory_scope
+  - spans
+  - events
+  - token_usage
+  - created_at
+  - cancelled
+  - metadata
+description: |-
+  Execution context that flows through every Nerva primitive.
+
+  Carries identity, permissions, observability (spans and events),
+  token accounting, cancellation state, and streaming configuration.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

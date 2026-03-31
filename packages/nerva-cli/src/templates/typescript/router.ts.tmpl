@@ -1,0 +1,22 @@
+/**
+ * {{name}} router.
+ *
+ * {{description}}
+ */
+
+import { Router, Context } from 'nerva';
+
+/** {{description}} */
+export class {{class_name}} implements Router {
+  readonly name = '{{name}}';
+
+  /**
+   * Determine which agent should handle the request.
+   *
+   * @param ctx - The request context to evaluate
+   * @returns The name of the agent to route to
+   */
+  async route(ctx: Context): Promise<string> {
+    return 'default';
+  }
+}

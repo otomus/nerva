@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PolicyDecision.yaml
+type: object
+properties:
+  allowed:
+    type: boolean
+    description: Whether the action is permitted.
+  reason:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: Why denied (null if allowed).
+  require_approval:
+    type: boolean
+    description: Whether human approval is needed before proceeding.
+  approvers:
+    anyOf:
+      - type: array
+        items:
+          type: string
+      - type: "null"
+    description: Who can approve (null if no approval needed).
+  budget_remaining:
+    anyOf:
+      - type: number
+      - type: "null"
+    description: Remaining budget after this action (null if not tracked).
+required:
+  - allowed
+description: Result of a policy evaluation.

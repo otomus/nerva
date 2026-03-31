@@ -1,0 +1,22 @@
+/**
+ * {{name}} agent.
+ *
+ * {{description}}
+ */
+
+import { Agent, Context, Response } from 'nerva';
+
+/** {{description}} */
+export class {{class_name}} implements Agent {
+  readonly name = '{{name}}';
+
+  /**
+   * Process an incoming request.
+   *
+   * @param ctx - The request context containing input and memory
+   * @returns Agent response with the result
+   */
+  async handle(ctx: Context): Promise<Response> {
+    return { text: `Hello from {{name}}` };
+  }
+}

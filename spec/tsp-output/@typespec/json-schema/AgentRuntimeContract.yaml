@@ -1,0 +1,90 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentRuntimeContract.yaml
+type: object
+properties:
+  invoke:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          handler:
+            type: string
+            description: Handler name (resolved from registry).
+          input:
+            $ref: AgentInput.yaml
+            description: Structured input for the handler.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context.
+        required:
+          - handler
+          - input
+          - ctx
+      output:
+        $ref: AgentResult.yaml
+    required:
+      - input
+      - output
+    description: Invoke a single handler.
+  invoke_chain:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          handlers:
+            type: array
+            items:
+              type: string
+            description: Ordered list of handler names.
+          input:
+            $ref: AgentInput.yaml
+            description: Initial input for the first handler.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context shared across the chain.
+        required:
+          - handlers
+          - input
+          - ctx
+      output:
+        $ref: AgentResult.yaml
+    required:
+      - input
+      - output
+    description: Run handlers in sequence, piping output as the next input's message.
+  delegate:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          handler:
+            type: string
+            description: Handler name to delegate to.
+          input:
+            $ref: AgentInput.yaml
+            description: Input for the delegated handler.
+          parent_ctx:
+            $ref: ExecContext.yaml
+            description: Parent's execution context.
+        required:
+          - handler
+          - input
+          - parent_ctx
+      output:
+        $ref: AgentResult.yaml
+    required:
+      - input
+      - output
+    description: Invoke a handler from within another handler (agent-to-agent delegation).
+required:
+  - invoke
+  - invoke_chain
+  - delegate
+description: |-
+  Agent runtime interface — execute handlers with lifecycle management.
+
+  Implementations handle timeout enforcement, circuit breaking,
+  structured output parsing, error classification, and streaming.

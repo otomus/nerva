@@ -1,0 +1,37 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ResponderContract.yaml
+type: object
+properties:
+  format:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          output:
+            $ref: AgentResult.yaml
+            description: Raw agent result from the runtime.
+          channel:
+            $ref: Channel.yaml
+            description: Target delivery channel.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context carrying identity and permissions.
+        required:
+          - output
+          - channel
+          - ctx
+      output:
+        $ref: Response.yaml
+    required:
+      - input
+      - output
+    description: Format agent output for the target channel.
+required:
+  - format
+description: |-
+  Responder interface — format agent output for a target channel.
+
+  Implementations adapt the raw AgentResult into a Response
+  appropriate for the delivery channel (truncation, markdown stripping,
+  media attachment, etc.).

@@ -1,0 +1,35 @@
+{
+  "name": "@nerva/core",
+  "version": "0.1.0",
+  "description": "Native Rust bindings for nerva-core (napi-rs)",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "nerva-core",
+    "triples": {
+      "defaults": true
+    }
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "version": "napi version"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/otomus/nerva",
+    "directory": "packages/nerva-core-node"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node"
+  ]
+}

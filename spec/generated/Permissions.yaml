@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Permissions.yaml
+type: object
+properties:
+  roles:
+    type: array
+    items:
+      type: string
+    description: Role names assigned to this context (e.g. "admin", "user").
+  allowed_tools:
+    anyOf:
+      - type: array
+        items:
+          type: string
+      - type: "null"
+    description: Tool names this context may invoke, or null for unrestricted.
+  allowed_agents:
+    anyOf:
+      - type: array
+        items:
+          type: string
+      - type: "null"
+    description: Agent names this context may delegate to, or null for unrestricted.
+required:
+  - roles
+description: |-
+  Immutable capability set governing what a context is allowed to do.
+
+  Uses allowlists for tools and agents. A null value means
+  "no restriction" (all allowed). An empty array means "none allowed".

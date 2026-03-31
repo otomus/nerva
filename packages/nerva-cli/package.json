@@ -1,0 +1,32 @@
+{
+  "name": "nerva-cli",
+  "version": "0.1.0",
+  "description": "CLI for the Nerva agent runtime",
+  "type": "module",
+  "bin": {
+    "nerva": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oronm/nerva",
+    "directory": "packages/nerva-cli"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

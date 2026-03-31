@@ -1,0 +1,37 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InvocationStats.yaml
+type: object
+properties:
+  total_calls:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Total number of invocations (success + failure).
+  successes:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of successful invocations.
+  failures:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of failed invocations.
+  last_invoked_at:
+    anyOf:
+      - type: number
+      - type: "null"
+    description: Unix timestamp of the most recent invocation, or null.
+  avg_duration_ms:
+    type: number
+    description: Exponential moving average of invocation duration in milliseconds.
+required:
+  - total_calls
+  - successes
+  - failures
+  - avg_duration_ms
+description: |-
+  Invocation metrics for a registered component.
+
+  Uses an exponential moving average for avg_duration_ms so that
+  recent latency is weighted more heavily than historical.

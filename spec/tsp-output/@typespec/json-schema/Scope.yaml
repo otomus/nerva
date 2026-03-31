@@ -1,0 +1,16 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Scope.yaml
+type: string
+enum:
+  - user
+  - session
+  - agent
+  - global
+description: |-
+  Memory isolation boundary for context data.
+
+  Determines how far stored facts and state are visible:
+  - USER: persists across sessions for the same user
+  - SESSION: scoped to a single conversation session
+  - AGENT: private to the agent handling the request
+  - GLOBAL: visible to all users and agents

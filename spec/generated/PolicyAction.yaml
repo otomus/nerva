@@ -1,0 +1,27 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PolicyAction.yaml
+type: object
+properties:
+  kind:
+    type: string
+    description: Action type (invoke_agent, call_tool, delegate, store_memory, route).
+  subject:
+    type: string
+    description: Who is acting (user_id or agent_name).
+  target:
+    type: string
+    description: What they are acting on (agent_name, tool_name).
+  metadata:
+    $ref: "#/$defs/RecordString"
+    description: Additional context (token_count, cost_estimate, etc.).
+required:
+  - kind
+  - subject
+  - target
+description: An action to be evaluated by the policy engine.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

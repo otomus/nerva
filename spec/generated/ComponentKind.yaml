@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ComponentKind.yaml
+type: string
+enum:
+  - agent
+  - tool
+  - sense
+  - plugin
+description: Classification of a registered component.

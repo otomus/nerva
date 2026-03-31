@@ -1,0 +1,94 @@
+---
+title: Nerva — Composable Agent Primitives
+description: Build your agent system — not the plumbing around it.
+template: splash
+hero:
+  tagline: 8 composable primitives that every agent orchestrator needs. Use one, use all, replace any.
+  actions:
+    - text: Get Started (Python)
+      link: /getting-started/python/
+      icon: right-arrow
+      variant: primary
+    - text: Get Started (TypeScript)
+      link: /getting-started/typescript/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/otomus/nerva
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Nerva?
+
+SDKs are too thin — you rebuild routing, execution, tools, and memory every time.
+Frameworks own your architecture — swap a component and you fight the framework.
+
+Nerva is the middle ground. Opinionated primitives, zero opinions on how you compose them.
+
+<CardGrid>
+  <Card title="ExecContext" icon="puzzle">
+    Request identity, permissions, memory scope, and tracing — threaded through every primitive.
+  </Card>
+  <Card title="Router" icon="magnifier">
+    Classify intent and select the right handler. Embedding, LLM, rule-based, or hybrid strategies.
+  </Card>
+  <Card title="Runtime" icon="rocket">
+    Execute agent code with isolation, timeouts, circuit breakers, and streaming support.
+  </Card>
+  <Card title="Tools" icon="setting">
+    Discover, sandbox, and invoke external tools. MCP servers and plain functions.
+  </Card>
+  <Card title="Memory" icon="document">
+    Tiered storage — hot (session), warm (episodes and facts), cold (vector search).
+  </Card>
+  <Card title="Responder" icon="pencil">
+    Format agent output for the target channel and tone.
+  </Card>
+  <Card title="Registry" icon="list-format">
+    Unified catalog of agents, tools, and plugins. Register, discover, health-check.
+  </Card>
+  <Card title="Policy" icon="approve-check">
+    Declarative safety, permissions, rate limits, cost budgets, and approval gates.
+  </Card>
+</CardGrid>
+
+## How It Works
+
+```
+         Message
+           |
+    +------v------+
+    | ExecContext  | <-- user identity, permissions, memory scope, trace ID
+    +------+------+
+           |
+    +------v------+
+    |   Policy     | <-- rate limit, budget check, approval gate
+    +------+------+
+           |
+    +------v------+
+    |    Router    | <-- classify intent, select handler (from Registry)
+    +------+------+
+           |
+    +------v------+
+    |   Runtime    | <-- execute handler (subprocess / in-process / container)
+    |     +- Tools | <-- discover from Registry, sandbox, call
+    |     +- Memory| <-- read context, write results
+    +------+------+
+           |
+    +------v------+
+    |  Responder   | <-- format for channel + tone
+    +------+------+
+           |
+         Output
+```
+
+## Library, Not Server
+
+Nerva runs **inside** your web framework. It does not own your HTTP layer, your auth, or your API docs.
+
+```
+FastAPI / NestJS / Express   (HTTP, auth, sessions, swagger)
+  +-- Nerva                  (routing, runtime, tools, memory, policy)
+       +-- LLM providers, MCP servers, subprocess agents
+```

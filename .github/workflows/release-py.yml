@@ -1,0 +1,40 @@
+name: Release Python
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build-and-publish:
+    name: Build & publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build package
+        run: cd packages/nerva-py && python -m build
+
+      - name: Publish to PyPI (Trusted Publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/nerva-py/dist/
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: packages/nerva-py/dist/*

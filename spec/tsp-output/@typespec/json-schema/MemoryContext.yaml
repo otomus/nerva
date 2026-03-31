@@ -1,0 +1,39 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: MemoryContext.yaml
+type: object
+properties:
+  conversation:
+    type: array
+    items:
+      $ref: "#/$defs/RecordString"
+    description: Recent conversation messages (role/content dicts).
+  episodes:
+    type: array
+    items:
+      type: string
+    description: Relevant past episodes from the warm tier.
+  facts:
+    type: array
+    items:
+      type: string
+    description: Extracted facts from the warm tier.
+  knowledge:
+    type: array
+    items:
+      type: string
+    description: Long-term knowledge entries from the cold tier.
+  token_count:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Estimated tokens consumed by this context.
+description: |-
+  Retrieved memory context for an agent.
+
+  Assembled by the memory system from one or more tiers.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

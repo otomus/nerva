@@ -1,0 +1,25 @@
+"""
+{{name}} router.
+
+{{description}}
+"""
+
+from nerva import Router, Context
+
+
+class {{class_name}}(Router):
+    """{{description}}"""
+
+    name = "{{name}}"
+
+    async def route(self, ctx: Context) -> str:
+        """
+        Determine which agent should handle the request.
+
+        Args:
+            ctx: The request context to evaluate.
+
+        Returns:
+            The name of the agent to route to.
+        """
+        return "default"

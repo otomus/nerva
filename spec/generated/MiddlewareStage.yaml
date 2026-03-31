@@ -1,0 +1,16 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: MiddlewareStage.yaml
+type: string
+enum:
+  - before_route
+  - before_invoke
+  - after_invoke
+  - before_respond
+description: |-
+  Pipeline stages where middleware can hook in.
+
+  Each stage fires at a specific point in the request lifecycle:
+  - BEFORE_ROUTE: After context creation, before the router picks a handler.
+  - BEFORE_INVOKE: After routing, before the selected handler executes.
+  - AFTER_INVOKE: After the handler returns, before response formatting.
+  - BEFORE_RESPOND: After formatting, before the response is sent to the caller.

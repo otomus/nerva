@@ -1,0 +1,14 @@
+{
+  "name": "@nerva/spec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeSpec protocol definitions for Nerva primitives — generates canonical JSON Schema contracts.",
+  "scripts": {
+    "build": "tsp compile .",
+    "clean": "rm -rf tsp-output"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "^0.65.0",
+    "@typespec/json-schema": "^0.65.0"
+  }
+}

@@ -1,0 +1,29 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentInput.yaml
+type: object
+properties:
+  message:
+    type: string
+    description: The user message or piped output from a previous handler.
+  args:
+    $ref: "#/$defs/RecordString"
+    description: Structured arguments extracted by the router.
+  tools:
+    type: array
+    items:
+      $ref: "#/$defs/RecordString"
+    description: Available tool specs for this invocation.
+  history:
+    type: array
+    items:
+      $ref: "#/$defs/RecordString"
+    description: Relevant conversation history entries.
+required:
+  - message
+description: Immutable input passed to an agent handler.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

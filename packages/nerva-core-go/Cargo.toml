@@ -1,0 +1,15 @@
+[package]
+name = "nerva-core-go"
+version = "0.1.0"
+edition = "2021"
+description = "C FFI bindings for nerva-core, used by CGo"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+nerva-core = { path = "../nerva-core" }
+serde_json = "1"
+
+[profile.release]
+lto = true

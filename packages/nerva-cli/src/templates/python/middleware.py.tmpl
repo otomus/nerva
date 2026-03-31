@@ -1,0 +1,32 @@
+"""
+{{name}} middleware.
+
+{{description}}
+"""
+
+from nerva import Middleware, Context, Response
+from typing import Callable, Awaitable
+
+
+class {{class_name}}(Middleware):
+    """{{description}}"""
+
+    name = "{{name}}"
+
+    async def handle(
+        self,
+        ctx: Context,
+        next_handler: Callable[[Context], Awaitable[Response]],
+    ) -> Response:
+        """
+        Process the request, optionally modifying context or response.
+
+        Args:
+            ctx: The request context.
+            next_handler: The next middleware or agent in the chain.
+
+        Returns:
+            The response, possibly modified.
+        """
+        response = await next_handler(ctx)
+        return response

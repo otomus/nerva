@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "nerva-core"
+version = "0.1.0"
+description = "Native Python bindings for nerva-core (similarity, tokenizer, schema)"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Oron Mozes"}]
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

@@ -1,0 +1,28 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Response.yaml
+type: object
+properties:
+  text:
+    type: string
+    description: The formatted response text.
+  channel:
+    $ref: Channel.yaml
+    description: Target channel this response was formatted for.
+  media:
+    type: array
+    items:
+      type: string
+    description: Optional media attachments (URLs or base64 strings).
+  metadata:
+    $ref: "#/$defs/RecordString"
+    description: Extra key-value metadata for the channel.
+required:
+  - text
+  - channel
+description: Formatted response ready for delivery.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

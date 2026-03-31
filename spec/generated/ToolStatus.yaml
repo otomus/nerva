@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolStatus.yaml
+type: string
+enum:
+  - success
+  - error
+  - permission_denied
+  - not_found
+  - timeout
+description: |-
+  Outcome status of a tool call.
+
+  Each value maps to a distinct failure mode so callers can branch
+  on status without inspecting error messages.

@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentStatus.yaml
+type: string
+enum:
+  - success
+  - error
+  - timeout
+  - wrong_handler
+  - needs_data
+  - needs_credentials
+description: Outcome status of an agent invocation.

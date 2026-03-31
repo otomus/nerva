@@ -1,0 +1,27 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolSpec.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Unique tool identifier.
+  description:
+    type: string
+    description: Human-readable description (used by LLM for selection).
+  parameters:
+    $ref: "#/$defs/RecordUnknown"
+    description: JSON Schema for tool input parameters.
+  required_permissions:
+    type: array
+    items:
+      type: string
+    description: Roles required to use this tool.
+required:
+  - name
+  - description
+description: Specification for a discoverable tool.
+$defs:
+  RecordUnknown:
+    type: object
+    properties: {}
+    additionalProperties: {}

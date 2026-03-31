@@ -1,0 +1,66 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: MemoryContract.yaml
+type: object
+properties:
+  recall:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          query:
+            type: string
+            description: Search query for relevant memories.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context with memory scope and session identity.
+        required:
+          - query
+          - ctx
+      output:
+        $ref: MemoryContext.yaml
+    required:
+      - input
+      - output
+    description: Retrieve relevant context scoped by ctx.memory_scope.
+  store:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          event:
+            $ref: MemoryEvent.yaml
+            description: Memory event to store.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context providing scope and identity.
+        required:
+          - event
+          - ctx
+    required:
+      - input
+    description: Store an event in the appropriate tier and scope.
+  consolidate:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context.
+        required:
+          - ctx
+    required:
+      - input
+    description: Promote, merge, or expire memories across tiers.
+required:
+  - recall
+  - store
+  - consolidate
+description: |-
+  Memory interface — tiered context storage that agents read from and write to.
+
+  Implementations provide three operations: recall (read),
+  store (write), and consolidate (maintenance).

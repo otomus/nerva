@@ -1,0 +1,19 @@
+[package]
+name = "nerva-core"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance core library for the Nerva framework"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dashmap = "5"
+regex = "1"
+
+[dev-dependencies]
+proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "hot_paths"
+harness = false

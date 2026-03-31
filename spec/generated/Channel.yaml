@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Channel.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Channel identifier (e.g. "slack", "api", "websocket").
+  supports_markdown:
+    type: boolean
+    description: Whether the channel renders markdown.
+  supports_media:
+    type: boolean
+    description: Whether the channel can display images/files.
+  max_length:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Maximum response length in characters (0 = unlimited).
+required:
+  - name
+description: |-
+  Target channel for a response.
+
+  Describes the capabilities and constraints of the delivery channel
+  so the responder can adapt output formatting accordingly.

@@ -1,0 +1,56 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PolicyEngineContract.yaml
+type: object
+properties:
+  evaluate:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          action:
+            $ref: PolicyAction.yaml
+            description: The action to evaluate.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context carrying identity, usage, and metadata.
+        required:
+          - action
+          - ctx
+      output:
+        $ref: PolicyDecision.yaml
+    required:
+      - input
+      - output
+    description: Evaluate whether an action is allowed under current policies.
+  record:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          action:
+            $ref: PolicyAction.yaml
+            description: The evaluated action.
+          decision:
+            $ref: PolicyDecision.yaml
+            description: The decision that was made.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context at the time of decision.
+        required:
+          - action
+          - decision
+          - ctx
+    required:
+      - input
+    description: Record a policy decision for the audit trail.
+required:
+  - evaluate
+  - record
+description: |-
+  Policy engine interface — evaluate and record policy decisions at every stage.
+
+  Implementations must provide both evaluate (sync gate) and record
+  (audit trail). The runtime calls evaluate before executing an action
+  and record after the decision is made.

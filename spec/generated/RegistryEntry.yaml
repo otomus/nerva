@@ -1,0 +1,55 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: RegistryEntry.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Unique identifier for the component.
+  kind:
+    $ref: ComponentKind.yaml
+    description: Component type (agent, tool, sense, plugin).
+  description:
+    type: string
+    description: What it does — used by the router for matching.
+  schema:
+    anyOf:
+      - $ref: "#/$defs/RecordUnknown"
+      - type: "null"
+    description: Input/output JSON schema (primarily for tools), or null.
+  metadata:
+    $ref: "#/$defs/RecordString"
+    description: Custom key-value fields (role, origin, version, etc.).
+  health:
+    $ref: HealthStatus.yaml
+    description: Current operational health status.
+  stats:
+    $ref: InvocationStats.yaml
+    description: Invocation metrics tracked over the component's lifetime.
+  enabled:
+    type: boolean
+    description: Whether the component is active.
+  requirements:
+    type: array
+    items:
+      type: string
+    description: Dependencies — credential names, other component names.
+  permissions:
+    type: array
+    items:
+      type: string
+    description: Role names required to access this component.
+required:
+  - name
+  - kind
+  - description
+description: A registered component in the catalog.
+$defs:
+  RecordUnknown:
+    type: object
+    properties: {}
+    additionalProperties: {}
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

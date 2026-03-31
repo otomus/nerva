@@ -1,0 +1,35 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: IntentResult.yaml
+type: object
+properties:
+  intent:
+    type: string
+    description: Classified intent label (e.g. "book_flight").
+  confidence:
+    type: number
+    minimum: 0
+    maximum: 1
+    description: Classification confidence between 0.0 and 1.0.
+  handlers:
+    type: array
+    items:
+      $ref: HandlerCandidate.yaml
+    description: Ranked list of handler candidates, best first.
+  raw_scores:
+    $ref: "#/$defs/RecordFloat64"
+    description: Optional per-handler scores for debugging.
+required:
+  - intent
+  - confidence
+  - handlers
+description: |-
+  Result of intent classification.
+
+  Contains the classified intent label, confidence, and a ranked
+  list of handler candidates ordered best-first.
+$defs:
+  RecordFloat64:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: number

@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentResult.yaml
+type: object
+properties:
+  status:
+    $ref: AgentStatus.yaml
+    description: Outcome status of the invocation.
+  output:
+    type: string
+    description: The agent's response text.
+  data:
+    $ref: "#/$defs/RecordString"
+    description: Structured data returned by the agent.
+  error:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: Error message when status is ERROR, null otherwise.
+  handler:
+    type: string
+    description: Name of the handler that produced this result.
+required:
+  - status
+description: Result from an agent handler invocation.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

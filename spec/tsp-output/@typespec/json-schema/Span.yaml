@@ -1,0 +1,43 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Span.yaml
+type: object
+properties:
+  span_id:
+    type: string
+    description: Unique identifier for this span.
+  name:
+    type: string
+    description: Human-readable label (e.g. "llm.call", "tool.invoke").
+  parent_id:
+    anyOf:
+      - type: string
+      - type: "null"
+    description: Span ID of the parent, or null for root spans.
+  started_at:
+    type: number
+    description: Unix timestamp when the span started.
+  ended_at:
+    anyOf:
+      - type: number
+      - type: "null"
+    description: Unix timestamp when the span ended, or null if still open.
+  attributes:
+    $ref: "#/$defs/RecordString"
+    description: Arbitrary key-value metadata attached to the span.
+required:
+  - span_id
+  - name
+  - parent_id
+  - started_at
+  - attributes
+description: |-
+  A timed segment of work within a request's lifecycle.
+
+  Spans form a tree: each span may have a parent_id pointing to
+  the span that created it. A null parent means a root span.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

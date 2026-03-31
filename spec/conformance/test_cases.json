@@ -1,0 +1,165 @@
+{
+  "$comment": "Conformance test cases for Nerva TypeSpec schemas. Each entry targets a schema file and provides valid and invalid instances.",
+  "cases": [
+    {
+      "schema": "Scope.yaml",
+      "description": "Scope enum — memory isolation boundary",
+      "valid": [
+        "user",
+        "session",
+        "agent",
+        "global"
+      ],
+      "invalid": [
+        "",
+        "unknown",
+        42,
+        null
+      ]
+    },
+    {
+      "schema": "Permissions.yaml",
+      "description": "Permissions — capability set with allowlists",
+      "valid": [
+        { "roles": [] },
+        { "roles": ["admin", "user"] },
+        { "roles": ["user"], "allowed_tools": ["search", "calendar"] },
+        { "roles": ["user"], "allowed_tools": null },
+        { "roles": [], "allowed_tools": null, "allowed_agents": null }
+      ],
+      "invalid": [
+        {},
+        { "roles": "admin" },
+        { "roles": [42] },
+        { "allowed_tools": ["search"] }
+      ]
+    },
+    {
+      "schema": "TokenUsage.yaml",
+      "description": "TokenUsage — LLM token accumulator",
+      "valid": [
+        { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "cost_usd": 0.0 },
+        { "prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150, "cost_usd": 0.0023 }
+      ],
+      "invalid": [
+        {},
+        { "prompt_tokens": "ten" },
+        { "prompt_tokens": 100 }
+      ]
+    },
+    {
+      "schema": "AgentStatus.yaml",
+      "description": "AgentStatus enum — outcome of agent invocation",
+      "valid": [
+        "success",
+        "error",
+        "timeout",
+        "wrong_handler",
+        "needs_data",
+        "needs_credentials"
+      ],
+      "invalid": [
+        "failed",
+        "",
+        123,
+        null
+      ]
+    },
+    {
+      "schema": "HandlerCandidate.yaml",
+      "description": "HandlerCandidate — router match with bounded score",
+      "valid": [
+        { "name": "search_handler", "score": 0.95 },
+        { "name": "fallback", "score": 0.0, "reason": "no match" },
+        { "name": "calendar", "score": 1.0 }
+      ],
+      "invalid": [
+        { "name": "test", "score": 1.5 },
+        { "name": "test", "score": -0.1 },
+        { "score": 0.5 },
+        { "name": "test" }
+      ]
+    },
+    {
+      "schema": "ToolStatus.yaml",
+      "description": "ToolStatus enum — outcome of tool call",
+      "valid": [
+        "success",
+        "error",
+        "permission_denied",
+        "not_found",
+        "timeout"
+      ],
+      "invalid": [
+        "denied",
+        "failed",
+        0
+      ]
+    },
+    {
+      "schema": "ToolSpec.yaml",
+      "description": "ToolSpec — discoverable tool specification",
+      "valid": [
+        { "name": "web_search", "description": "Search the web" },
+        { "name": "calendar", "description": "Manage calendar", "parameters": { "type": "object" }, "required_permissions": ["admin"] }
+      ],
+      "invalid": [
+        { "name": "test" },
+        { "description": "missing name" },
+        {}
+      ]
+    },
+    {
+      "schema": "MemoryTier.yaml",
+      "description": "MemoryTier enum — storage tier",
+      "valid": ["hot", "warm", "cold"],
+      "invalid": ["archive", "", 1]
+    },
+    {
+      "schema": "ComponentKind.yaml",
+      "description": "ComponentKind enum — registered component type",
+      "valid": ["agent", "tool", "sense", "plugin"],
+      "invalid": ["service", "middleware", 0]
+    },
+    {
+      "schema": "HealthStatus.yaml",
+      "description": "HealthStatus enum — component operational health",
+      "valid": ["healthy", "degraded", "unavailable"],
+      "invalid": ["down", "ok", true]
+    },
+    {
+      "schema": "MiddlewareStage.yaml",
+      "description": "MiddlewareStage enum — pipeline hook points",
+      "valid": ["before_route", "before_invoke", "after_invoke", "before_respond"],
+      "invalid": ["after_respond", "on_error", 42]
+    },
+    {
+      "schema": "Channel.yaml",
+      "description": "Channel — response delivery target",
+      "valid": [
+        { "name": "api" },
+        { "name": "slack", "supports_markdown": true, "supports_media": false, "max_length": 4000 },
+        { "name": "websocket", "supports_markdown": true, "supports_media": true }
+      ],
+      "invalid": [
+        {},
+        { "supports_markdown": true }
+      ]
+    },
+    {
+      "schema": "PolicyDecision.yaml",
+      "description": "PolicyDecision — result of policy evaluation",
+      "valid": [
+        { "allowed": true },
+        { "allowed": false, "reason": "rate limit exceeded" },
+        { "allowed": false, "reason": "budget exceeded", "require_approval": true, "approvers": ["admin@co.com"] },
+        { "allowed": true, "budget_remaining": 42.5 }
+      ],
+      "invalid": [
+        {},
+        { "reason": "no allowed field" },
+        { "allowed": "yes" }
+      ]
+    }
+  ]
+}

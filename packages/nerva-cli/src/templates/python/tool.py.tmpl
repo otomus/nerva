@@ -1,0 +1,25 @@
+"""
+{{name}} tool.
+
+{{description}}
+"""
+
+from nerva import Tool, ToolInput, ToolOutput
+
+
+class {{class_name}}(Tool):
+    """{{description}}"""
+
+    name = "{{name}}"
+
+    async def execute(self, input: ToolInput) -> ToolOutput:
+        """
+        Execute the tool action.
+
+        Args:
+            input: The tool input parameters.
+
+        Returns:
+            Tool output with the result.
+        """
+        return ToolOutput(result=f"Executed {{name}}")

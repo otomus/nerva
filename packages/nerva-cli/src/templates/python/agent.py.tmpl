@@ -1,0 +1,25 @@
+"""
+{{name}} agent.
+
+{{description}}
+"""
+
+from nerva import Agent, Context, Response
+
+
+class {{class_name}}(Agent):
+    """{{description}}"""
+
+    name = "{{name}}"
+
+    async def handle(self, ctx: Context) -> Response:
+        """
+        Process an incoming request.
+
+        Args:
+            ctx: The request context containing input and memory.
+
+        Returns:
+            Agent response with the result.
+        """
+        return Response(text=f"Hello from {{name}}")

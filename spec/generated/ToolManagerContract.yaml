@@ -1,0 +1,61 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolManagerContract.yaml
+type: object
+properties:
+  discover:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context carrying identity and permission set.
+        required:
+          - ctx
+      output:
+        type: array
+        items:
+          $ref: ToolSpec.yaml
+    required:
+      - input
+      - output
+    description: Return available tools filtered by the context's permissions.
+  call:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          tool:
+            type: string
+            description: Tool name to invoke.
+          args:
+            $ref: "#/$defs/RecordUnknown"
+            description: Arguments matching the tool's parameter schema.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context.
+        required:
+          - tool
+          - args
+          - ctx
+      output:
+        $ref: ToolResult.yaml
+    required:
+      - input
+      - output
+    description: Execute a tool call within sandbox constraints.
+required:
+  - discover
+  - call
+description: |-
+  Tool manager interface — discover and execute tools within sandbox constraints.
+
+  Implementations must filter discovery results by the caller's
+  permissions and enforce sandboxing during execution.
+$defs:
+  RecordUnknown:
+    type: object
+    properties: {}
+    additionalProperties: {}

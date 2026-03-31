@@ -1,0 +1,27 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Event.yaml
+type: object
+properties:
+  timestamp:
+    type: number
+    description: Unix timestamp of the event.
+  name:
+    type: string
+    description: Human-readable label (e.g. "policy.denied", "stream.started").
+  attributes:
+    $ref: "#/$defs/RecordString"
+    description: Arbitrary key-value metadata.
+required:
+  - timestamp
+  - name
+  - attributes
+description: |-
+  A point-in-time occurrence recorded within a context.
+
+  Events have no duration — just a timestamp and descriptive metadata.
+$defs:
+  RecordString:
+    type: object
+    properties: {}
+    additionalProperties:
+      type: string

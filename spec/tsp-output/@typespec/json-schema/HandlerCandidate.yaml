@@ -1,0 +1,23 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: HandlerCandidate.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Handler name (must match a registry entry).
+  score:
+    type: number
+    minimum: 0
+    maximum: 1
+    description: Match score between 0.0 and 1.0.
+  reason:
+    type: string
+    description: Why this handler was selected (for observability).
+required:
+  - name
+  - score
+description: |-
+  A candidate handler returned by the router.
+
+  The score indicates how well this handler matches the input,
+  on a scale from 0.0 (no match) to 1.0 (perfect match).

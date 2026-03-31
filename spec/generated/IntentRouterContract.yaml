@@ -1,0 +1,35 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: IntentRouterContract.yaml
+type: object
+properties:
+  classify:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Raw user message text.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context carrying permissions, trace, and session metadata.
+        required:
+          - message
+          - ctx
+        description: Input parameters for classification.
+      output:
+        $ref: IntentResult.yaml
+        description: Classification result with confidence and ranked handlers.
+    required:
+      - input
+      - output
+    description: "Operation: classify a message and return ranked handler candidates."
+required:
+  - classify
+description: |-
+  Intent router interface — classify a user message and select handlers.
+
+  Every router strategy implements this contract. The orchestrator
+  calls classify() and uses the result to dispatch to the
+  appropriate handler in the runtime.

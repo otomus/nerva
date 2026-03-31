@@ -1,0 +1,22 @@
+/**
+ * {{name}} tool.
+ *
+ * {{description}}
+ */
+
+import { Tool, ToolInput, ToolOutput } from 'nerva';
+
+/** {{description}} */
+export class {{class_name}} implements Tool {
+  readonly name = '{{name}}';
+
+  /**
+   * Execute the tool action.
+   *
+   * @param input - The tool input parameters
+   * @returns Tool output with the result
+   */
+  async execute(input: ToolInput): Promise<ToolOutput> {
+    return { result: `Executed {{name}}` };
+  }
+}

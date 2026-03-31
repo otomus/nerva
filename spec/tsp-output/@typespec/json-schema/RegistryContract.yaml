@@ -1,0 +1,114 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: RegistryContract.yaml
+type: object
+properties:
+  register:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          entry:
+            $ref: RegistryEntry.yaml
+            description: Component definition to register.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context.
+        required:
+          - entry
+          - ctx
+    required:
+      - input
+    description: Add or replace a component in the registry.
+  discover:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          kind:
+            $ref: ComponentKind.yaml
+            description: Component type to filter by.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context for permission checks.
+        required:
+          - kind
+          - ctx
+      output:
+        type: array
+        items:
+          $ref: RegistryEntry.yaml
+    required:
+      - input
+      - output
+    description: List components of a given kind visible to the caller.
+  resolve:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Unique component identifier.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Execution context.
+        required:
+          - name
+          - ctx
+      output:
+        anyOf:
+          - $ref: RegistryEntry.yaml
+          - type: "null"
+    required:
+      - input
+      - output
+    description: Look up a single component by name.
+  health:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Unique component identifier.
+        required:
+          - name
+      output:
+        $ref: HealthStatus.yaml
+    required:
+      - input
+      - output
+    description: Get the current health status of a component.
+  update:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Unique component identifier to update.
+          patch:
+            $ref: RegistryPatch.yaml
+            description: Fields to overwrite.
+        required:
+          - name
+          - patch
+    required:
+      - input
+    description: Apply a partial update to a registered component.
+required:
+  - register
+  - discover
+  - resolve
+  - health
+  - update
+description: |-
+  Registry interface — unified catalog of agents, tools, senses, and plugins.
+
+  Implementations may be backed by an in-memory dict, a database, or
+  a remote service.

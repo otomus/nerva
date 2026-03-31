@@ -1,0 +1,4 @@
+# TypeSpec compiler configuration for Nerva protocol definitions.
+# Emits JSON Schema files from the TypeSpec models.
+emit:
+  - "@typespec/json-schema"

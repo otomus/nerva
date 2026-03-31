@@ -1,0 +1,2 @@
+nerva>=0.1.0
+slack-bolt>=1.18.0

@@ -1,0 +1,28 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TokenUsage.yaml
+type: object
+properties:
+  prompt_tokens:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of tokens in the prompt/input.
+  completion_tokens:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of tokens in the completion/output.
+  total_tokens:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Combined prompt + completion tokens.
+  cost_usd:
+    type: number
+    description: Estimated cost in US dollars.
+required:
+  - prompt_tokens
+  - completion_tokens
+  - total_tokens
+  - cost_usd
+description: Accumulator for LLM token consumption and estimated cost.

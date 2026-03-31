@@ -1,0 +1,20 @@
+[package]
+name = "nerva-core-node"
+version = "0.1.0"
+edition = "2021"
+description = "Node.js napi-rs bindings for nerva-core"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nerva-core = { path = "../nerva-core" }
+napi = { version = "2", features = ["default"] }
+napi-derive = "2"
+serde_json = "1"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true

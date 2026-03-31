@@ -1,0 +1,66 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: OrchestratorContract.yaml
+type: object
+properties:
+  handle:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          message:
+            type: string
+            description: User message.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Optional pre-built context. Created if omitted.
+          channel:
+            $ref: Channel.yaml
+            description: Target channel. Defaults to API channel.
+        required:
+          - message
+      output:
+        $ref: Response.yaml
+    required:
+      - input
+      - output
+    description: |-
+      Process a message through the full pipeline.
+
+      Steps: context creation, policy check, memory recall, middleware,
+      routing, handler invocation, memory storage, response formatting.
+  stream:
+    type: object
+    properties:
+      input:
+        type: object
+        properties:
+          message:
+            type: string
+            description: User message.
+          ctx:
+            $ref: ExecContext.yaml
+            description: Optional pre-built context.
+          channel:
+            $ref: Channel.yaml
+            description: Target channel.
+        required:
+          - message
+      output:
+        type: string
+        description: Individual text chunks yielded during processing.
+    required:
+      - input
+      - output
+    description: |-
+      Process a message with streaming output.
+
+      Same pipeline as handle() but yields chunks as they arrive.
+required:
+  - handle
+  - stream
+description: |-
+  Orchestrator contract — wires all primitives into a single request handler.
+
+  The orchestrator owns the full request lifecycle:
+  message -> context -> policy -> memory -> router -> runtime -> responder -> response

@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+*.egg
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Node
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+target/
+Cargo.lock
+!packages/nerva-core/Cargo.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# NOTE: spec/generated/ is NOT ignored — it is checked into the repo.

@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: MemoryTier.yaml
+type: string
+enum:
+  - hot
+  - warm
+  - cold
+description: |-
+  Storage tier for memory events.
+
+  Each tier trades off speed for capacity:
+  - HOT: current session state, in-memory, fast but ephemeral.
+  - WARM: recent episodes and facts, persisted in a key-value store.
+  - COLD: long-term knowledge, stored in a vector database for semantic search.
