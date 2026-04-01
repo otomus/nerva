@@ -43,7 +43,7 @@ Each primitive is a **Protocol** (Python) / **interface** (TypeScript) with a de
 ## Quick Start — Python
 
 ```bash
-pip install nerva
+pip install otomus-nerva
 ```
 
 ```python
