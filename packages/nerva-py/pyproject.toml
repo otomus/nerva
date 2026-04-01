@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "nerva"
+name = "otomus-nerva"
 version = "0.2.0"
 description = "Composable Agent Primitives — build your agent system, not the plumbing around it"
 readme = "README.md"

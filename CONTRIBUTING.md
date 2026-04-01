@@ -143,13 +143,13 @@ git push origin vX.Y.Z
 
 | Workflow | Publishes | Auth |
 |----------|-----------|------|
-| `release-py.yml` | `nerva` to PyPI | Trusted Publisher (OIDC) — configured at pypi.org/manage/project/nerva/settings/publishing/ |
+| `release-py.yml` | `nerva` to PyPI | Trusted Publisher (OIDC) — configured at pypi.org/manage/project/otomus-nerva/settings/publishing/ |
 | `release-js.yml` | `@otomus/nerva` + `@otomus/nerva-cli` to npm | `NPM_TOKEN` secret |
 | `release.yml` | GitHub Release with artifacts | GitHub token |
 
 ### PyPI Trusted Publisher setup
 
-PyPI uses OpenID Connect for authentication — no API tokens needed. The trusted publisher must be configured at [pypi.org](https://pypi.org/manage/project/nerva/settings/publishing/) with:
+PyPI uses OpenID Connect for authentication — no API tokens needed. The trusted publisher must be configured at [pypi.org](https://pypi.org/manage/project/otomus-nerva/settings/publishing/) with:
 
 - **Owner**: `otomus`
 - **Repository**: `nerva`
