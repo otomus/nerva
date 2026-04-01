@@ -118,6 +118,54 @@ nerva generate workflow my-workflow
 
 5. To publish, add the `nerva-plugin` keyword to your `package.json` and publish to npm.
 
+## Releasing
+
+Releases are automated via GitHub Actions. Pushing a `v*` tag triggers the full release pipeline.
+
+### Steps
+
+```bash
+# 1. Bump versions in all packages that changed
+#    - packages/nerva-py/pyproject.toml
+#    - packages/nerva-js/package.json
+#    - packages/nerva-cli/package.json
+
+# 2. Commit and push
+git add -A && git commit -m "chore: bump to vX.Y.Z"
+git push origin main
+
+# 3. Tag and push — this triggers the release
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+### What the pipeline does
+
+| Workflow | Publishes | Auth |
+|----------|-----------|------|
+| `release-py.yml` | `nerva` to PyPI | Trusted Publisher (OIDC) — configured at pypi.org/manage/project/nerva/settings/publishing/ |
+| `release-js.yml` | `@otomus/nerva` + `@otomus/nerva-cli` to npm | `NPM_TOKEN` secret |
+| `release.yml` | GitHub Release with artifacts | GitHub token |
+
+### PyPI Trusted Publisher setup
+
+PyPI uses OpenID Connect for authentication — no API tokens needed. The trusted publisher must be configured at [pypi.org](https://pypi.org/manage/project/nerva/settings/publishing/) with:
+
+- **Owner**: `otomus`
+- **Repository**: `nerva`
+- **Workflow**: `release-py.yml`
+- **Environment**: `pypi`
+
+If the trusted publisher is not configured, the `release-py.yml` workflow will fail with `invalid-publisher`. Set it up once and all future releases work automatically.
+
+### npm auth
+
+The `NPM_TOKEN` repository secret must be a valid npm automation token with publish access to the `@otomus` scope.
+
+### Idempotency
+
+Both publish workflows tolerate re-publishes (already-published versions are skipped). This means re-running a failed release is safe — it will only publish what's missing.
+
 ## Code Style
 
 All code must follow the rules in:

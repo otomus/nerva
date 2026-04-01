@@ -32,6 +32,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packages/nerva-py/dist/
+          skip-existing: true
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
