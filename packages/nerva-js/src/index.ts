@@ -337,6 +337,12 @@ export {
   sseHandler,
 } from "./contrib/express.js";
 
+// -- testkit/ -------------------------------------------------------------
+// Testkit is available as a separate entry point:
+//   import { createTestOrchestrator } from "@otomus/nerva/testkit";
+// Re-export the barrel for convenience:
+export * as testkit from "./testkit/index.js";
+
 // -- contrib/nestjs.ts ----------------------------------------------------
 export {
   NERVA_ORCHESTRATOR_TOKEN,

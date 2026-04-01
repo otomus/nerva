@@ -1,0 +1,469 @@
+---
+title: Testing
+description: Test your agents with Nerva's built-in testkit — spy wrappers, assertion helpers, and boundary stubs.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Nerva ships a first-class testkit. Every primitive has a spy wrapper that delegates to the real implementation **and** records every call. No mocks — real code runs, and you assert against what happened.
+
+## Philosophy
+
+| Principle | What it means |
+|-----------|--------------|
+| **Real code first** | Spies wrap real implementations (`RuleRouter`, `InProcessRuntime`, etc.) — not fakes |
+| **Mock only at boundaries** | The only thing you stub is the LLM API. Everything else runs for real. |
+| **Expectation queues** | Set what a boundary returns with `.expect_*()`. Expectations are consumed FIFO, then fall back to real behavior. |
+| **Zero config** | `TestOrchestrator.build()` / `createTestOrchestrator()` gives you a fully wired system in one call |
+
+## Quick start
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.testkit import (
+      TestOrchestrator,
+      assert_routed_to,
+      assert_handler_invoked,
+      assert_no_unconsumed_expectations,
+  )
+  from nerva.context import ExecContext
+
+  async def test_greeting_agent():
+      result = TestOrchestrator.build(
+          handlers={"default": lambda inp, ctx: "Hello!"},
+      )
+
+      # Set an LLM expectation at the boundary
+      result.runtime.expect_result("Hello from the agent!")
+
+      ctx = ExecContext.create(user_id="test-user", session_id="test-session")
+      response = await result.orchestrator.handle("hi there", ctx)
+
+      assert_routed_to(result.router, "default")
+      assert_handler_invoked(result.runtime, "default")
+      assert_no_unconsumed_expectations(result)
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import {
+    createTestOrchestrator,
+    assertRoutedTo,
+    assertHandlerInvoked,
+    assertNoUnconsumedExpectations,
+  } from "@otomus/nerva/testkit";
+  import { ExecContext } from "@otomus/nerva";
+
+  test("greeting agent", async () => {
+    const result = createTestOrchestrator({
+      handlers: { default: async (_input, _ctx) => "Hello!" },
+    });
+
+    result.runtime.expectResult({ status: "success", output: "Hello from the agent!" });
+
+    const ctx = ExecContext.create({ userId: "test-user", sessionId: "test-session" });
+    const response = await result.orchestrator.handle("hi there", ctx);
+
+    assertRoutedTo(result.router, "default");
+    assertHandlerInvoked(result.runtime, "default");
+    assertNoUnconsumedExpectations(result);
+  });
+  ```
+  </TabItem>
+</Tabs>
+
+## Spy wrappers
+
+Every Nerva primitive has a corresponding spy. Spies implement the same Protocol / interface, so they drop in anywhere the real primitive is used.
+
+| Spy | Wraps | Records |
+|-----|-------|---------|
+| `SpyRouter` | `RuleRouter` (catch-all) | `classifyCalls` |
+| `SpyRuntime` | `InProcessRuntime` | `invokeCalls`, `delegateCalls` |
+| `SpyResponder` | `PassthroughResponder` | `formatCalls` |
+| `SpyMemory` | `TieredMemory` + `InMemoryHotMemory` | `recallCalls`, `storeCalls` |
+| `SpyPolicy` | `NoopPolicyEngine` | `evaluateCalls`, `recordCalls` |
+| `SpyToolManager` | `FunctionToolManager` | `discoverCalls`, `callCalls` |
+
+### Using spies directly
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.testkit import SpyRouter
+  from nerva.router.rule import RuleRouter
+
+  router = SpyRouter(RuleRouter([
+      {"pattern": "billing.*", "handler": "billing_agent", "intent": "billing"},
+      {"pattern": ".*", "handler": "general_agent", "intent": "general"},
+  ]))
+
+  result = await router.classify("billing question", ctx)
+
+  assert len(router.classify_calls) == 1
+  assert router.classify_calls[0].result.handler == "billing_agent"
+  assert router.classify_calls[0].was_expected is False  # came from real router
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { SpyRouter } from "@otomus/nerva/testkit";
+  import { RuleRouter } from "@otomus/nerva/router/rule";
+
+  const router = new SpyRouter(new RuleRouter([
+    { pattern: "billing.*", handler: "billing_agent", intent: "billing" },
+    { pattern: ".*", handler: "general_agent", intent: "general" },
+  ]));
+
+  const result = await router.classify("billing question", ctx);
+
+  expect(router.classifyCalls).toHaveLength(1);
+  expect(router.classifyCalls[0].result.handler).toBe("billing_agent");
+  expect(router.classifyCalls[0].wasExpected).toBe(false);
+  ```
+  </TabItem>
+</Tabs>
+
+## Expectation queues
+
+Call `.expect_*()` to enqueue a canned response. The spy returns expectations in FIFO order, then falls back to the real implementation when the queue is empty.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  spy_router.expect_handler("billing_agent", confidence=0.95)
+  spy_router.expect_handler("support_agent", confidence=0.8)
+
+  # First call -> billing_agent (from expectation)
+  r1 = await spy_router.classify("anything", ctx)
+  assert r1.handler == "billing_agent"
+  assert spy_router.classify_calls[0].was_expected is True
+
+  # Second call -> support_agent (from expectation)
+  r2 = await spy_router.classify("anything", ctx)
+  assert r2.handler == "support_agent"
+
+  # Third call -> real RuleRouter runs (no more expectations)
+  r3 = await spy_router.classify("hello", ctx)
+  assert spy_router.classify_calls[2].was_expected is False
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  spyRouter.expectHandler("billing_agent", 0.95);
+  spyRouter.expectHandler("support_agent", 0.8);
+
+  const r1 = await spyRouter.classify("anything", ctx);
+  expect(r1.handler).toBe("billing_agent");
+  expect(spyRouter.classifyCalls[0].wasExpected).toBe(true);
+
+  const r2 = await spyRouter.classify("anything", ctx);
+  expect(r2.handler).toBe("support_agent");
+
+  // Expectations exhausted — real RuleRouter runs
+  const r3 = await spyRouter.classify("hello", ctx);
+  expect(spyRouter.classifyCalls[2].wasExpected).toBe(false);
+  ```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+Call `spy.verify_expectations_consumed()` (Python) or `spy.verifyExpectationsConsumed()` (TypeScript) in your teardown to catch unused expectations — a sign that your test didn't exercise the path you intended.
+</Aside>
+
+### Expectation methods by spy
+
+| Spy | Methods |
+|-----|---------|
+| `SpyRouter` | `expect_handler()` / `expectHandler()` |
+| `SpyRuntime` | `expect_result()` / `expectResult()` |
+| `SpyResponder` | `expect_response()` / `expectResponse()` |
+| `SpyMemory` | `expect_recall()` / `expectRecall()` |
+| `SpyPolicy` | `expect_allow()`, `expect_deny()` / `expectAllow()`, `expectDeny()` |
+| `SpyToolManager` | `expect_tool_result()` / `expectToolResult()` |
+
+## TestOrchestrator builder
+
+One call wires all primitives with spy-wrapped real defaults. Override any primitive — the rest stay wired.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.testkit import TestOrchestrator, DenyAllPolicy
+
+  # Default: all spies wrap real in-memory implementations
+  result = TestOrchestrator.build()
+
+  # Override one primitive — the rest use spy-wrapped defaults
+  result = TestOrchestrator.build(
+      policy=DenyAllPolicy("budget exceeded"),
+  )
+
+  # Register custom handlers
+  result = TestOrchestrator.build(
+      handlers={
+          "greet": lambda inp, ctx: f"Hello, {inp.message}!",
+          "farewell": lambda inp, ctx: "Goodbye!",
+      },
+  )
+
+  # Access all spies
+  result.router          # SpyRouter
+  result.runtime         # SpyRuntime
+  result.responder       # SpyResponder
+  result.memory          # SpyMemory
+  result.policy          # SpyPolicy
+  result.tools           # SpyToolManager
+  result.orchestrator    # Orchestrator (fully wired)
+
+  # Lifecycle
+  result.reset_all()                          # clear all call histories
+  result.verify_all_expectations_consumed()   # assert no leftover expectations
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { createTestOrchestrator, DenyAllPolicy } from "@otomus/nerva/testkit";
+
+  // Default: all spies wrap real in-memory implementations
+  const result = createTestOrchestrator();
+
+  // Override one primitive
+  const result = createTestOrchestrator({
+    policy: new DenyAllPolicy("budget exceeded"),
+  });
+
+  // Register custom handlers
+  const result = createTestOrchestrator({
+    handlers: {
+      greet: async (input, ctx) => `Hello, ${input.message}!`,
+      farewell: async (_input, _ctx) => "Goodbye!",
+    },
+  });
+
+  // Lifecycle
+  result.resetAll();
+  result.verifyAllExpectationsConsumed();
+  ```
+  </TabItem>
+</Tabs>
+
+## Assertion helpers
+
+Readable, purpose-built assertions that inspect spy call histories.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.testkit import (
+      assert_routed_to,
+      assert_handler_invoked,
+      assert_policy_allowed,
+      assert_policy_denied,
+      assert_memory_stored,
+      assert_memory_recalled,
+      assert_tool_called,
+      assert_pipeline_order,
+      assert_no_unconsumed_expectations,
+  )
+
+  assert_routed_to(result.router, "billing_agent")
+  assert_handler_invoked(result.runtime, "billing_agent")
+  assert_policy_allowed(result.policy)
+  assert_policy_denied(result.policy, reason="budget exceeded")
+  assert_memory_stored(result.memory, content="important fact")
+  assert_memory_recalled(result.memory, query="previous question")
+  assert_tool_called(result.tools, "search", args={"query": "nerva"})
+  assert_pipeline_order(result, ["router", "runtime", "responder"])
+  assert_no_unconsumed_expectations(result)
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import {
+    assertRoutedTo,
+    assertHandlerInvoked,
+    assertPolicyAllowed,
+    assertPolicyDenied,
+    assertMemoryStored,
+    assertMemoryRecalled,
+    assertToolCalled,
+    assertPipelineOrder,
+    assertNoUnconsumedExpectations,
+  } from "@otomus/nerva/testkit";
+
+  assertRoutedTo(result.router, "billing_agent");
+  assertHandlerInvoked(result.runtime, "billing_agent");
+  assertPolicyAllowed(result.policy);
+  assertPolicyDenied(result.policy, "budget exceeded");
+  assertMemoryStored(result.memory, "important fact");
+  assertMemoryRecalled(result.memory, "previous question");
+  assertToolCalled(result.tools, "search", { query: "nerva" });
+  assertPipelineOrder(result, ["router", "runtime", "responder"]);
+  assertNoUnconsumedExpectations(result);
+  ```
+  </TabItem>
+</Tabs>
+
+## Boundary stubs
+
+For the lowest-level external boundaries (LLM API calls), use boundary stubs instead of spies.
+
+### StubLLMHandler
+
+Returns canned responses in sequence. When the queue is empty, returns a default.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.testkit import StubLLMHandler
+
+  stub = StubLLMHandler(
+      responses=["First answer", "Second answer"],
+      default_response="Fallback answer",
+  )
+
+  r1 = await stub.handle(input, ctx)   # -> "First answer"
+  r2 = await stub.handle(input, ctx)   # -> "Second answer"
+  r3 = await stub.handle(input, ctx)   # -> "Fallback answer"
+
+  assert stub.call_count == 3
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { StubLLMHandler } from "@otomus/nerva/testkit";
+
+  const stub = new StubLLMHandler(
+    ["First answer", "Second answer"],
+    "Fallback answer",
+  );
+
+  const r1 = await stub.handle(input, ctx);   // -> "First answer"
+  const r2 = await stub.handle(input, ctx);   // -> "Second answer"
+  const r3 = await stub.handle(input, ctx);   // -> "Fallback answer"
+
+  expect(stub.callCount).toBe(3);
+  ```
+  </TabItem>
+</Tabs>
+
+### DenyAllPolicy / AllowAllPolicy
+
+Deterministic policy engines for testing permission boundaries.
+
+<Tabs>
+  <TabItem label="Python">
+  ```python
+  from nerva.testkit import DenyAllPolicy, AllowAllPolicy
+
+  # Every action is denied
+  deny = DenyAllPolicy(reason="test: always deny")
+  decision = await deny.evaluate(action, ctx)
+  assert decision.allowed is False
+
+  # Every action is allowed
+  allow = AllowAllPolicy()
+  decision = await allow.evaluate(action, ctx)
+  assert decision.allowed is True
+  ```
+  </TabItem>
+  <TabItem label="TypeScript">
+  ```typescript
+  import { DenyAllPolicy, AllowAllPolicy } from "@otomus/nerva/testkit";
+
+  const deny = new DenyAllPolicy("test: always deny");
+  const decision = await deny.evaluate(action, ctx);
+  expect(decision.allowed).toBe(false);
+
+  const allow = new AllowAllPolicy();
+  const decision = await allow.evaluate(action, ctx);
+  expect(decision.allowed).toBe(true);
+  ```
+  </TabItem>
+</Tabs>
+
+## Pytest fixtures
+
+<Aside type="note">
+Python only. TypeScript users use the factory functions from `@otomus/nerva/testkit` directly.
+</Aside>
+
+Register the testkit's fixtures in your `conftest.py`:
+
+```python
+# conftest.py
+from nerva.testkit.fixtures import *  # noqa: F401, F403
+```
+
+Available fixtures:
+
+| Fixture | Type | Description |
+|---------|------|-------------|
+| `ctx` | `ExecContext` | Fresh execution context (`user_id="test-user"`) |
+| `test_orchestrator` | `TestOrchestratorResult` | Fully wired orchestrator with all spies |
+| `spy_router` | `SpyRouter` | Standalone spy router |
+| `spy_runtime` | `SpyRuntime` | Standalone spy runtime |
+| `spy_responder` | `SpyResponder` | Standalone spy responder |
+| `spy_memory` | `SpyMemory` | Standalone spy memory |
+| `spy_policy` | `SpyPolicy` | Standalone spy policy |
+| `spy_tools` | `SpyToolManager` | Standalone spy tool manager |
+
+## Testing patterns
+
+### Test that policy blocks an action
+
+```python
+async def test_policy_blocks_expensive_agent(test_orchestrator):
+    orch = test_orchestrator
+    orch.policy.expect_deny(reason="budget exceeded")
+
+    ctx = ExecContext.create(user_id="test-user", session_id="s1")
+    response = await orch.orchestrator.handle("do expensive thing", ctx)
+
+    assert_policy_denied(orch.policy, reason="budget exceeded")
+```
+
+### Test memory recall influences agent behavior
+
+```python
+async def test_memory_provides_context(test_orchestrator):
+    orch = test_orchestrator
+    orch.memory.expect_recall(MemoryContext(
+        conversation=[
+            {"role": "user", "content": "My name is Alice"},
+            {"role": "assistant", "content": "Nice to meet you, Alice!"},
+        ],
+    ))
+
+    ctx = ExecContext.create(user_id="test-user", session_id="s1")
+    await orch.orchestrator.handle("What's my name?", ctx)
+
+    assert_memory_recalled(orch.memory, query="What's my name?")
+```
+
+### Test the full pipeline order
+
+```python
+async def test_pipeline_executes_in_order(test_orchestrator):
+    orch = test_orchestrator
+    ctx = ExecContext.create(user_id="test-user", session_id="s1")
+
+    await orch.orchestrator.handle("hello", ctx)
+
+    assert_pipeline_order(orch, ["router", "runtime", "responder"])
+    assert_no_unconsumed_expectations(orch)
+```
+
+## Testing pyramid
+
+| Layer | Real code | Stubbed |
+|-------|-----------|---------|
+| **Unit** (default) | All primitives (in-memory) | Nothing |
+| **Integration** | + MCP Armor, + NATS | LLM API only |
+| **E2E** | Everything + StubLLMHandler | Nothing |
+
+<Aside type="tip">
+Start with unit tests using the testkit builder. The in-memory implementations are fast enough that most agent tests run in milliseconds without any external dependencies.
+</Aside>

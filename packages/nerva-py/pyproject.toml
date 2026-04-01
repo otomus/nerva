@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nerva"
-version = "0.1.1"
+version = "0.2.0"
 description = "Composable Agent Primitives — build your agent system, not the plumbing around it"
 readme = "README.md"
 license = {text = "MIT"}

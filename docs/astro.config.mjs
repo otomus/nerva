@@ -82,6 +82,7 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            { label: "Testing", slug: "guides/testing" },
             { label: "Migration Guide", slug: "guides/migration" },
             { label: "Cookbook", slug: "guides/cookbook" },
           ],

@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import {
   ArrowRight, Github, Minus, Box, Layers,
   Radio, ShieldCheck, Plug, Activity,
-  Check, X as XIcon,
+  Check, X as XIcon, FlaskConical,
 } from "lucide-react";
 
 const FADE_UP = {
@@ -22,9 +22,10 @@ export function HomePage() {
       <Hero />
       <Section id="problem" bg="alt"><Problem /></Section>
       <Section id="ecosystem" bg="default"><Ecosystem /></Section>
-      <Section id="comparison" bg="alt"><Comparison /></Section>
-      <Section id="stats" bg="default"><Stats /></Section>
-      <Section id="cta" bg="alt"><CTA /></Section>
+      <Section id="testkit" bg="alt"><Testkit /></Section>
+      <Section id="comparison" bg="default"><Comparison /></Section>
+      <Section id="stats" bg="alt"><Stats /></Section>
+      <Section id="cta" bg="default"><CTA /></Section>
     </>
   );
 }
@@ -252,6 +253,95 @@ function Ecosystem() {
   );
 }
 
+/* ─── Testkit ──────────────────────────────────────────────────────── */
+
+function Testkit() {
+  return (
+    <section className="py-28 px-6">
+      <div className="mx-auto max-w-6xl">
+        <SectionHeading
+          title="Testability Built In"
+          subtitle="Every primitive has a spy wrapper. Real code runs — spies record every call. Set expectations at the boundary, assert against what happened. No mocks."
+        />
+
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-16"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={{ visible: { transition: { staggerChildren: 0.15 } } }}
+        >
+          <motion.div variants={FADE_UP} transition={{ duration: 0.5 }}>
+            <div className="code-block rounded-xl p-6 text-sm h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <FlaskConical size={16} className="text-[#7FC8FF]" />
+                <span className="text-[#7FC8FF] text-xs font-semibold uppercase tracking-wider">Python</span>
+              </div>
+              <pre className="text-gray-300 overflow-x-auto">
+                <code>
+                  <span className="text-[#7FC8FF]">from</span> nerva.testkit <span className="text-[#7FC8FF]">import</span> ({"\n"}
+                  {"    "}TestOrchestrator,{"\n"}
+                  {"    "}assert_routed_to,{"\n"}
+                  {"    "}assert_handler_invoked,{"\n"}
+                  ){"\n"}
+                  {"\n"}
+                  <span className="text-gray-500"># One call — fully wired with spies</span>{"\n"}
+                  orch = TestOrchestrator.build({"\n"}
+                  {"    "}handlers={"{"}
+                  <span className="text-emerald-400">"greet"</span>: my_handler{"}"},{"\n"}
+                  ){"\n"}
+                  {"\n"}
+                  <span className="text-gray-500"># Set what the boundary returns</span>{"\n"}
+                  orch.runtime.expect_result(<span className="text-emerald-400">"Hello!"</span>){"\n"}
+                  {"\n"}
+                  <span className="text-gray-500"># Real code runs. Assert against it.</span>{"\n"}
+                  <span className="text-[#7FC8FF]">await</span> orch.orchestrator.handle(<span className="text-emerald-400">"hi"</span>, ctx){"\n"}
+                  assert_routed_to(orch.router, <span className="text-emerald-400">"greet"</span>){"\n"}
+                  assert_handler_invoked(orch.runtime, <span className="text-emerald-400">"greet"</span>)
+                </code>
+              </pre>
+            </div>
+          </motion.div>
+
+          <motion.div variants={FADE_UP} transition={{ duration: 0.5 }} className="flex flex-col gap-6">
+            {TESTKIT_FEATURES.map(({ title, desc }) => (
+              <div key={title} className="glass-card rounded-xl p-6">
+                <h3 className="text-white font-semibold mb-2">{title}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">{desc}</p>
+              </div>
+            ))}
+            <a
+              href="/nerva/docs/guides/testing/"
+              className="inline-flex items-center gap-2 text-[#7FC8FF] text-sm font-medium hover:underline"
+            >
+              Read the testing guide <ArrowRight size={14} />
+            </a>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+const TESTKIT_FEATURES = [
+  {
+    title: "Spy wrappers, not mocks",
+    desc: "SpyRouter, SpyRuntime, SpyMemory, SpyPolicy, SpyResponder, SpyToolManager — each delegates to the real implementation and records every call.",
+  },
+  {
+    title: "Expectation queues",
+    desc: "Set what a boundary returns with .expect_*(). Expectations are consumed FIFO, then fall back to real behavior. Mix real and canned responses in the same test.",
+  },
+  {
+    title: "9 assertion helpers",
+    desc: "assert_routed_to, assert_handler_invoked, assert_policy_denied, assert_tool_called, assert_pipeline_order — readable, purpose-built assertions.",
+  },
+  {
+    title: "One-line setup",
+    desc: "TestOrchestrator.build() gives you a fully wired system with spy-wrapped real defaults. Override any primitive — the rest stay wired.",
+  },
+];
+
 /* ─── Comparison ───────────────────────────────────────────────────── */
 
 interface ComparisonRow {
@@ -272,6 +362,7 @@ const ROWS: ComparisonRow[] = [
   { feature: "Memory tiers", nerva: "3-tier", langgraph: "Custom", crewai: "Short", autogen: "Chat", pydantic: "None" },
   { feature: "Policy engine", nerva: "YAML+code", langgraph: "Custom", crewai: "None", autogen: "None", pydantic: "None" },
   { feature: "Schema-driven", nerva: "TypeSpec", langgraph: "No", crewai: "No", autogen: "No", pydantic: "Pydantic" },
+  { feature: "Built-in testkit", nerva: "Spies+Assert", langgraph: "No", crewai: "No", autogen: "No", pydantic: "No" },
 ];
 
 const COMPETITORS = ["nerva", "langgraph", "crewai", "autogen", "pydantic"] as const;
