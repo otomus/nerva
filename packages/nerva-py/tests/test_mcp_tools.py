@@ -8,15 +8,12 @@ process layer to avoid real process spawning.
 from __future__ import annotations
 
 import asyncio
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from nerva.context import ExecContext, Permissions
-from nerva.tools import ToolResult, ToolSpec, ToolStatus
+from nerva.tools import ToolSpec, ToolStatus
 from nerva.tools.mcp import (
-    DEFAULT_POOL_SIZE,
     MAX_RESULT_BYTES,
     TRUNCATION_SUFFIX,
     MCPArmorViolation,
