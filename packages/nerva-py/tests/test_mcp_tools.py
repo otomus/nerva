@@ -1,8 +1,8 @@
 """Tests for MCPToolManager — N-173.
 
-Covers tool discovery, tool calling, permission filtering, armor/sandbox
-integration, result truncation, and error handling. Mocks the subprocess
-connection layer to avoid real process spawning.
+Covers tool discovery, tool calling, permission filtering, armor broker
+integration, result truncation, and error handling. Mocks the armored
+process layer to avoid real process spawning.
 """
 
 from __future__ import annotations
@@ -19,16 +19,13 @@ from nerva.tools.mcp import (
     DEFAULT_POOL_SIZE,
     MAX_RESULT_BYTES,
     TRUNCATION_SUFFIX,
-    ArmorPolicy,
+    MCPArmorViolation,
     MCPConnection,
     MCPConnectionPool,
     MCPProtocolError,
     MCPServerConfig,
     MCPToolManager,
-    _build_request,
-    _check_armor,
     _extract_tool_output,
-    _parse_response,
     _truncate_result,
 )
 
@@ -38,79 +35,6 @@ from tests.conftest import make_ctx
 # ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------
-
-class TestBuildRequest:
-    """Tests for _build_request JSON-RPC serialization."""
-
-    def test_basic_request(self) -> None:
-        """Builds a valid JSON-RPC 2.0 request with newline terminator."""
-        raw = _build_request("tools/list", 1)
-        data = json.loads(raw)
-        assert data["jsonrpc"] == "2.0"
-        assert data["method"] == "tools/list"
-        assert data["id"] == 1
-        assert raw.endswith(b"\n")
-
-    def test_request_with_params(self) -> None:
-        """Includes params in the request when provided."""
-        raw = _build_request("tools/call", 2, {"name": "search", "arguments": {}})
-        data = json.loads(raw)
-        assert data["params"]["name"] == "search"
-
-    def test_request_without_params(self) -> None:
-        """Omits params key when None."""
-        raw = _build_request("tools/list", 3)
-        data = json.loads(raw)
-        assert "params" not in data
-
-
-class TestParseResponse:
-    """Tests for _parse_response JSON-RPC validation."""
-
-    def test_valid_response(self) -> None:
-        """Parses a well-formed response and extracts result."""
-        response = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"tools": []}}).encode()
-        result = _parse_response(response, 1)
-        assert result == {"tools": []}
-
-    def test_id_mismatch_raises(self) -> None:
-        """Mismatched response ID raises MCPProtocolError."""
-        response = json.dumps({"jsonrpc": "2.0", "id": 99, "result": {}}).encode()
-        with pytest.raises(MCPProtocolError, match="mismatch"):
-            _parse_response(response, 1)
-
-    def test_error_response_raises(self) -> None:
-        """An error field in the response raises MCPProtocolError."""
-        response = json.dumps({
-            "jsonrpc": "2.0", "id": 1,
-            "error": {"code": -32600, "message": "Invalid Request"}
-        }).encode()
-        with pytest.raises(MCPProtocolError, match="Invalid Request"):
-            _parse_response(response, 1)
-
-    def test_malformed_json_raises(self) -> None:
-        """Non-JSON bytes raise MCPProtocolError."""
-        with pytest.raises(MCPProtocolError, match="Invalid JSON"):
-            _parse_response(b"not json", 1)
-
-    def test_non_object_raises(self) -> None:
-        """A JSON array raises MCPProtocolError."""
-        with pytest.raises(MCPProtocolError, match="Expected JSON object"):
-            _parse_response(b"[1,2,3]", 1)
-
-    def test_missing_result_returns_empty_dict(self) -> None:
-        """Missing result field returns empty dict."""
-        response = json.dumps({"jsonrpc": "2.0", "id": 1}).encode()
-        result = _parse_response(response, 1)
-        assert result == {}
-
-    def test_error_as_string(self) -> None:
-        """A non-dict error value still raises MCPProtocolError."""
-        response = json.dumps({
-            "jsonrpc": "2.0", "id": 1, "error": "something broke"
-        }).encode()
-        with pytest.raises(MCPProtocolError, match="something broke"):
-            _parse_response(response, 1)
 
 
 class TestExtractToolOutput:
@@ -183,52 +107,9 @@ class TestTruncateResult:
 
 
 # ---------------------------------------------------------------------------
-# Armor checks
-# ---------------------------------------------------------------------------
-
-class TestArmorChecks:
-    """Tests for _check_armor sandbox policy enforcement."""
-
-    def test_no_path_args_passes(self) -> None:
-        """Args without path keys pass armor check."""
-        armor = ArmorPolicy()
-        assert _check_armor("tool", {"query": "hello"}, armor) is None
-
-    def test_path_arg_denied_when_no_paths_allowed(self) -> None:
-        """Path-like args are denied when allowed_paths is empty."""
-        armor = ArmorPolicy()
-        violation = _check_armor("tool", {"path": "/etc/passwd"}, armor)
-        assert violation is not None
-        assert "denied" in violation.lower()
-
-    def test_path_arg_allowed_when_under_allowed_path(self) -> None:
-        """Path args under an allowed prefix pass."""
-        armor = ArmorPolicy(allowed_paths=frozenset(["/home/user"]))
-        assert _check_armor("tool", {"path": "/home/user/file.txt"}, armor) is None
-
-    def test_path_arg_denied_when_outside_allowed_path(self) -> None:
-        """Path args outside allowed prefixes are denied."""
-        armor = ArmorPolicy(allowed_paths=frozenset(["/home/user"]))
-        violation = _check_armor("tool", {"path": "/etc/shadow"}, armor)
-        assert violation is not None
-        assert "outside" in violation.lower()
-
-    def test_network_arg_denied(self) -> None:
-        """Network-indicative args are denied when allow_network is False."""
-        armor = ArmorPolicy(allow_network=False)
-        violation = _check_armor("tool", {"url": "https://evil.com"}, armor)
-        assert violation is not None
-        assert "network" in violation.lower()
-
-    def test_network_arg_allowed(self) -> None:
-        """Network args pass when allow_network is True."""
-        armor = ArmorPolicy(allow_network=True)
-        assert _check_armor("tool", {"url": "https://ok.com"}, armor) is None
-
-
-# ---------------------------------------------------------------------------
 # MCPToolManager integration
 # ---------------------------------------------------------------------------
+
 
 class TestMCPToolManager:
     """Tests for the MCPToolManager orchestrator."""
@@ -236,19 +117,26 @@ class TestMCPToolManager:
     def _make_manager(
         self,
         server_name: str = "test-server",
-        armor: ArmorPolicy | None = None,
+        armor: str | None = None,
+        max_result_bytes: int = MAX_RESULT_BYTES,
     ) -> MCPToolManager:
         """Build an MCPToolManager with a single server config.
 
         Args:
             server_name: Name for the test server.
-            armor: Optional armor policy.
+            armor: Optional path to armor.json.
+            max_result_bytes: Result size limit.
 
         Returns:
             Configured MCPToolManager.
         """
-        config = MCPServerConfig(name=server_name, command="echo")
-        return MCPToolManager([config], armor=armor)
+        config = MCPServerConfig(
+            name=server_name,
+            command="echo",
+            armor=armor,
+            max_result_bytes=max_result_bytes,
+        )
+        return MCPToolManager([config])
 
     @pytest.mark.asyncio
     async def test_discover_returns_tools(self) -> None:
@@ -346,7 +234,6 @@ class TestMCPToolManager:
         """call() returns SUCCESS with tool output."""
         ctx = make_ctx()
         manager = self._make_manager()
-        # Manually register the tool-to-server mapping
         manager._tool_server_map["search"] = "test-server"
 
         mock_conn = AsyncMock()
@@ -385,22 +272,28 @@ class TestMCPToolManager:
 
     @pytest.mark.asyncio
     async def test_call_armor_violation(self) -> None:
-        """call() returns PERMISSION_DENIED when armor policy is violated."""
-        armor = ArmorPolicy(allow_network=False)
+        """call() returns PERMISSION_DENIED when broker blocks the call."""
         ctx = make_ctx()
-        manager = self._make_manager(armor=armor)
+        manager = self._make_manager(armor="armor.json")
         manager._tool_server_map["fetch"] = "test-server"
 
-        result = await manager.call("fetch", {"url": "https://evil.com"}, ctx)
+        mock_conn = AsyncMock()
+        mock_conn.is_connected = True
+        mock_conn.call_tool = AsyncMock(
+            side_effect=MCPArmorViolation("Armor violation [-32002]: network access denied")
+        )
+
+        with patch.object(manager._pool, "get", return_value=mock_conn):
+            result = await manager.call("fetch", {"url": "https://evil.com"}, ctx)
+
         assert result.status == ToolStatus.PERMISSION_DENIED
         assert "armor" in result.error.lower() or "violation" in result.error.lower()
 
     @pytest.mark.asyncio
     async def test_call_truncates_large_output(self) -> None:
-        """call() truncates output exceeding armor max_result_bytes."""
-        armor = ArmorPolicy(max_result_bytes=50, allow_network=True)
+        """call() truncates output exceeding max_result_bytes."""
         ctx = make_ctx()
-        manager = self._make_manager(armor=armor)
+        manager = self._make_manager(max_result_bytes=50)
         manager._tool_server_map["big"] = "test-server"
 
         mock_conn = AsyncMock()
@@ -440,10 +333,30 @@ class TestMCPToolManager:
 
         assert result.duration_ms >= 0
 
+    @pytest.mark.asyncio
+    async def test_call_path_violation_from_broker(self) -> None:
+        """call() returns PERMISSION_DENIED on PATH_VIOLATION from broker."""
+        ctx = make_ctx()
+        manager = self._make_manager(armor="armor.json")
+        manager._tool_server_map["read_file"] = "test-server"
+
+        mock_conn = AsyncMock()
+        mock_conn.is_connected = True
+        mock_conn.call_tool = AsyncMock(
+            side_effect=MCPArmorViolation("Armor violation [-32001]: path /etc/passwd blocked")
+        )
+
+        with patch.object(manager._pool, "get", return_value=mock_conn):
+            result = await manager.call("read_file", {"path": "/etc/passwd"}, ctx)
+
+        assert result.status == ToolStatus.PERMISSION_DENIED
+        assert "/etc/passwd" in result.error
+
 
 # ---------------------------------------------------------------------------
 # MCPConnectionPool
 # ---------------------------------------------------------------------------
+
 
 class TestMCPConnectionPool:
     """Tests for the LRU connection pool."""
@@ -498,3 +411,85 @@ class TestMCPConnectionPool:
         conn1 = await pool.get(config)
         conn2 = await pool.get(config)
         assert conn1 is conn2
+
+
+# ---------------------------------------------------------------------------
+# MCPConnection broker response parsing
+# ---------------------------------------------------------------------------
+
+
+class TestMCPConnectionBrokerResponse:
+    """Tests for MCPConnection._parse_broker_response."""
+
+    def _make_connection(self) -> MCPConnection:
+        """Create an MCPConnection for testing response parsing."""
+        config = MCPServerConfig(name="test", command="echo")
+        return MCPConnection(config)
+
+    def test_valid_response(self) -> None:
+        """Extracts result from a well-formed response."""
+        conn = self._make_connection()
+        response = {"jsonrpc": "2.0", "id": 1, "result": {"tools": []}}
+        result = conn._parse_broker_response(response, 1)
+        assert result == {"tools": []}
+
+    def test_id_mismatch_raises(self) -> None:
+        """Mismatched response ID raises MCPProtocolError."""
+        conn = self._make_connection()
+        response = {"jsonrpc": "2.0", "id": 99, "result": {}}
+        with pytest.raises(MCPProtocolError, match="mismatch"):
+            conn._parse_broker_response(response, 1)
+
+    def test_generic_error_raises_protocol_error(self) -> None:
+        """A non-armor error raises MCPProtocolError."""
+        conn = self._make_connection()
+        response = {
+            "jsonrpc": "2.0", "id": 1,
+            "error": {"code": -32600, "message": "Invalid Request"},
+        }
+        with pytest.raises(MCPProtocolError, match="Invalid Request"):
+            conn._parse_broker_response(response, 1)
+
+    def test_path_violation_raises_armor_violation(self) -> None:
+        """PATH_VIOLATION error code raises MCPArmorViolation."""
+        conn = self._make_connection()
+        response = {
+            "jsonrpc": "2.0", "id": 1,
+            "error": {"code": -32001, "message": "path /etc/passwd blocked"},
+        }
+        with pytest.raises(MCPArmorViolation, match="path /etc/passwd"):
+            conn._parse_broker_response(response, 1)
+
+    def test_network_violation_raises_armor_violation(self) -> None:
+        """NETWORK_VIOLATION error code raises MCPArmorViolation."""
+        conn = self._make_connection()
+        response = {
+            "jsonrpc": "2.0", "id": 1,
+            "error": {"code": -32002, "message": "network access denied"},
+        }
+        with pytest.raises(MCPArmorViolation, match="network access denied"):
+            conn._parse_broker_response(response, 1)
+
+    def test_secret_blocked_raises_armor_violation(self) -> None:
+        """SECRET_BLOCKED error code raises MCPArmorViolation."""
+        conn = self._make_connection()
+        response = {
+            "jsonrpc": "2.0", "id": 1,
+            "error": {"code": -32004, "message": "env var AWS_SECRET blocked"},
+        }
+        with pytest.raises(MCPArmorViolation, match="AWS_SECRET"):
+            conn._parse_broker_response(response, 1)
+
+    def test_missing_result_returns_empty_dict(self) -> None:
+        """Missing result field returns empty dict."""
+        conn = self._make_connection()
+        response = {"jsonrpc": "2.0", "id": 1}
+        result = conn._parse_broker_response(response, 1)
+        assert result == {}
+
+    def test_error_as_string(self) -> None:
+        """A non-dict error value still raises MCPProtocolError."""
+        conn = self._make_connection()
+        response = {"jsonrpc": "2.0", "id": 1, "error": "something broke"}
+        with pytest.raises(MCPProtocolError, match="something broke"):
+            conn._parse_broker_response(response, 1)

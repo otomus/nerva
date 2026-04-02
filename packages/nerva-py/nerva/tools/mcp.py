@@ -1,12 +1,13 @@
 """MCP tool manager — discover and execute tools via MCP protocol servers.
 
-Implements the MCP (Model Context Protocol) stdio transport using JSON-RPC 2.0
-over subprocess stdin/stdout. No external MCP library required.
+Uses the ``mcparmor`` broker (``otomus-mcp-armor``) for real OS-level
+sandboxing of every tool call. The broker enforces filesystem, network,
+and environment restrictions declared in an ``armor.json`` manifest.
 
 Features:
 - Connection pooling with LRU eviction (N-131)
 - Permission filtering via ctx.permissions (N-132)
-- Sandboxing via ArmorPolicy (N-133)
+- OS-level sandboxing via mcparmor broker (N-133)
 - Result size limits with truncation (N-134)
 """
 
@@ -15,10 +16,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
+
+from mcparmor import ArmoredProcess, ArmoredProcessError, ArmorErrorCode
 
 from nerva.context import ExecContext
 from nerva.tools import ToolResult, ToolSpec, ToolStatus
@@ -42,11 +44,20 @@ TRUNCATION_SUFFIX = "... [truncated]"
 JSONRPC_VERSION = "2.0"
 """JSON-RPC protocol version used for MCP communication."""
 
+ARMOR_ERROR_CODES = frozenset({
+    ArmorErrorCode.PATH_VIOLATION,
+    ArmorErrorCode.NETWORK_VIOLATION,
+    ArmorErrorCode.SECRET_BLOCKED,
+    ArmorErrorCode.SPAWN_VIOLATION,
+    ArmorErrorCode.TIMEOUT,
+})
+"""Set of JSON-RPC error codes that indicate an armor policy violation."""
+
 _log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Configuration dataclasses
+# Configuration
 # ---------------------------------------------------------------------------
 
 
@@ -58,96 +69,19 @@ class MCPServerConfig:
         name: Server identifier used for logging and tool namespacing.
         command: Command to launch the server (stdio transport).
         args: Command-line arguments passed to the server process.
-        env: Extra environment variables for the server process.
+        armor: Path to the ``armor.json`` manifest. ``None`` disables sandboxing.
+        armor_profile: Profile name override within the manifest.
         timeout_seconds: Timeout for connection setup and individual tool calls.
+        max_result_bytes: Maximum bytes in tool output before truncation.
     """
 
     name: str
     command: str
     args: list[str] = field(default_factory=list)
-    env: dict[str, str] = field(default_factory=dict)
+    armor: str | None = None
+    armor_profile: str | None = None
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
-
-
-@dataclass(frozen=True)
-class ArmorPolicy:
-    """Sandboxing policy applied before every tool execution.
-
-    Controls filesystem access, network permissions, visible environment
-    variables, and output size. An empty allowlist means "none allowed".
-
-    Attributes:
-        allowed_paths: Filesystem paths the tool can access. Empty = no filesystem.
-        allow_network: Whether the tool may make network calls.
-        allowed_env_vars: Environment variable names the tool may read. Empty = none.
-        max_result_bytes: Maximum bytes in tool output before truncation.
-    """
-
-    allowed_paths: frozenset[str] = field(default_factory=frozenset)
-    allow_network: bool = False
-    allowed_env_vars: frozenset[str] = field(default_factory=frozenset)
     max_result_bytes: int = MAX_RESULT_BYTES
-
-
-# ---------------------------------------------------------------------------
-# JSON-RPC helpers
-# ---------------------------------------------------------------------------
-
-
-def _build_request(method: str, request_id: int, params: dict[str, object] | None = None) -> bytes:
-    """Serialize a JSON-RPC 2.0 request to a newline-terminated byte string.
-
-    Args:
-        method: RPC method name (e.g. ``"tools/list"``).
-        request_id: Monotonically increasing request identifier.
-        params: Optional parameters for the RPC method.
-
-    Returns:
-        UTF-8 encoded JSON line ready to write to stdin.
-    """
-    payload: dict[str, object] = {
-        "jsonrpc": JSONRPC_VERSION,
-        "method": method,
-        "id": request_id,
-    }
-    if params is not None:
-        payload["params"] = params
-    return json.dumps(payload).encode("utf-8") + b"\n"
-
-
-def _parse_response(line: bytes, expected_id: int) -> dict[str, object]:
-    """Parse a JSON-RPC 2.0 response line and validate its structure.
-
-    Args:
-        line: Raw bytes read from the server's stdout.
-        expected_id: The request ID we expect the response to match.
-
-    Returns:
-        The ``result`` field of the JSON-RPC response.
-
-    Raises:
-        MCPProtocolError: If the response is malformed or contains an error.
-    """
-    try:
-        data = json.loads(line)
-    except json.JSONDecodeError as exc:
-        raise MCPProtocolError(f"Invalid JSON from MCP server: {exc}") from exc
-
-    if not isinstance(data, dict):
-        raise MCPProtocolError(f"Expected JSON object, got {type(data).__name__}")
-
-    if data.get("id") != expected_id:
-        raise MCPProtocolError(
-            f"Response ID mismatch: expected {expected_id}, got {data.get('id')}"
-        )
-
-    if "error" in data:
-        err = data["error"]
-        code = err.get("code", "?") if isinstance(err, dict) else "?"
-        message = err.get("message", str(err)) if isinstance(err, dict) else str(err)
-        raise MCPProtocolError(f"MCP server error [{code}]: {message}")
-
-    return data.get("result", {})  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -164,44 +98,43 @@ class MCPArmorViolation(Exception):
 
 
 # ---------------------------------------------------------------------------
-# MCPConnection
+# MCPConnection — wraps mcparmor.ArmoredProcess
 # ---------------------------------------------------------------------------
 
 
 class MCPConnection:
-    """A single connection to an MCP server via stdio subprocess.
+    """A single connection to an MCP server via the mcparmor broker.
 
-    Manages the server process lifecycle and JSON-RPC 2.0 communication.
-    Each connection holds a running subprocess and communicates by writing
-    JSON lines to stdin and reading JSON lines from stdout.
+    Wraps ``mcparmor.ArmoredProcess`` in persistent mode, sending
+    JSON-RPC messages through the broker for OS-level sandboxing.
+    Synchronous ``invoke()`` calls are bridged to async via executor.
 
     Args:
-        config: Server configuration (command, args, env, timeout).
+        config: Server configuration (command, args, armor manifest, timeout).
     """
 
     def __init__(self, config: MCPServerConfig) -> None:
         self._config = config
-        self._process: asyncio.subprocess.Process | None = None
+        self._process: ArmoredProcess | None = None
         self._request_id = 0
         self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        """Start the MCP server subprocess and verify it is ready.
+        """Start the armored MCP server process in persistent mode.
 
         Raises:
-            MCPProtocolError: If the process fails to start.
+            ArmoredProcessError: If the broker cannot start.
             OSError: If the command is not found.
         """
-        env = {**os.environ, **self._config.env} if self._config.env else None
-        self._process = await asyncio.create_subprocess_exec(
-            self._config.command,
-            *self._config.args,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
+        cmd = [self._config.command, *self._config.args]
+        self._process = ArmoredProcess(
+            cmd,
+            armor=self._config.armor,
+            profile=self._config.armor_profile,
+            ready_signal=False,
         )
-        _log.debug("MCP server '%s' started (pid=%s)", self._config.name, self._process.pid)
+        self._process.__enter__()
+        _log.debug("MCP server '%s' started via armor broker", self._config.name)
 
     async def list_tools(self) -> list[ToolSpec]:
         """Discover all tools exposed by this MCP server.
@@ -220,7 +153,7 @@ class MCPConnection:
         return [_parse_tool_spec(t, self._config.name) for t in raw_tools if isinstance(t, dict)]
 
     async def call_tool(self, name: str, args: dict[str, object]) -> str:
-        """Invoke a tool on this MCP server and return its raw output.
+        """Invoke a tool through the armored broker.
 
         Args:
             name: Tool name as registered on the server.
@@ -231,42 +164,42 @@ class MCPConnection:
 
         Raises:
             MCPProtocolError: If the server returns an error.
+            MCPArmorViolation: If the broker blocks the call.
             asyncio.TimeoutError: If the call exceeds the configured timeout.
         """
         result = await self._send("tools/call", {"name": name, "arguments": args})
         return _extract_tool_output(result)
 
     async def close(self) -> None:
-        """Terminate the MCP server subprocess and release resources."""
+        """Terminate the armored process and release resources."""
         if self._process is None:
             return
         try:
-            if self._process.stdin:
-                self._process.stdin.close()
-            self._process.terminate()
-            await asyncio.wait_for(self._process.wait(), timeout=5.0)
-        except (ProcessLookupError, asyncio.TimeoutError):
-            self._process.kill()
+            self._process.__exit__(None, None, None)
+        except Exception:
+            _log.debug("Error closing armored process for '%s'", self._config.name, exc_info=True)
         finally:
-            _log.debug("MCP server '%s' closed", self._config.name)
             self._process = None
+            _log.debug("MCP server '%s' closed", self._config.name)
 
     @property
     def is_connected(self) -> bool:
-        """Whether the server subprocess is alive.
+        """Whether the armored process is alive.
 
         Returns:
-            ``True`` if the subprocess is running.
+            ``True`` if the process is running.
         """
-        return self._process is not None and self._process.returncode is None
+        return self._process is not None and self._process.is_alive()
 
     # -- Private ------------------------------------------------------------
 
-    async def _send(self, method: str, params: dict[str, object] | None = None) -> dict[str, object]:
-        """Send a JSON-RPC request and wait for the response.
+    async def _send(
+        self, method: str, params: dict[str, object] | None = None
+    ) -> dict[str, object]:
+        """Send a JSON-RPC request through the broker and parse the response.
 
         Args:
-            method: RPC method name.
+            method: RPC method name (e.g. ``"tools/list"`` or ``"tools/call"``).
             params: Optional method parameters.
 
         Returns:
@@ -274,6 +207,7 @@ class MCPConnection:
 
         Raises:
             MCPProtocolError: If the connection is dead or response is invalid.
+            MCPArmorViolation: If the broker returns an armor error code.
             asyncio.TimeoutError: If the server does not respond in time.
         """
         if not self.is_connected:
@@ -281,39 +215,88 @@ class MCPConnection:
 
         async with self._lock:
             self._request_id += 1
-            request_id = self._request_id
-            request_bytes = _build_request(method, request_id, params)
-            return await self._send_raw(request_bytes, request_id)
+            message = self._build_message(method, self._request_id, params)
+            response = await self._invoke_in_executor(message)
+            return self._parse_broker_response(response, self._request_id)
 
-    async def _send_raw(self, request_bytes: bytes, request_id: int) -> dict[str, object]:
-        """Write request bytes and read the response line with timeout.
+    def _build_message(
+        self, method: str, request_id: int, params: dict[str, object] | None
+    ) -> dict[str, object]:
+        """Build a JSON-RPC 2.0 message dict for the broker.
 
         Args:
-            request_bytes: Serialized JSON-RPC request.
-            request_id: Expected response ID for validation.
+            method: RPC method name.
+            request_id: Request identifier.
+            params: Optional parameters.
 
         Returns:
-            Parsed ``result`` from the response.
+            JSON-serializable dict.
+        """
+        msg: dict[str, object] = {
+            "jsonrpc": JSONRPC_VERSION,
+            "method": method,
+            "id": request_id,
+        }
+        if params is not None:
+            msg["params"] = params
+        return msg
+
+    async def _invoke_in_executor(self, message: dict[str, object]) -> dict:
+        """Run the synchronous broker invoke in a thread executor.
+
+        Args:
+            message: JSON-RPC message dict.
+
+        Returns:
+            Parsed JSON-RPC response dict from the broker.
 
         Raises:
-            MCPProtocolError: On write/read failure or invalid response.
-            asyncio.TimeoutError: If the response takes too long.
+            asyncio.TimeoutError: If the call exceeds timeout.
+            ArmoredProcessError: If broker communication fails.
         """
-        assert self._process is not None  # noqa: S101 — guarded by is_connected check
-        assert self._process.stdin is not None  # noqa: S101
-        assert self._process.stdout is not None  # noqa: S101
-
-        self._process.stdin.write(request_bytes)
-        await self._process.stdin.drain()
-
-        line = await asyncio.wait_for(
-            self._process.stdout.readline(),
+        assert self._process is not None  # noqa: S101 — guarded by is_connected
+        loop = asyncio.get_running_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                self._process.invoke,
+                message,
+            ),
             timeout=self._config.timeout_seconds,
         )
-        if not line:
-            raise MCPProtocolError(f"MCP server '{self._config.name}' closed stdout unexpectedly")
 
-        return _parse_response(line, request_id)
+    def _parse_broker_response(
+        self, response: dict[str, object], expected_id: int
+    ) -> dict[str, object]:
+        """Validate a broker response and extract the result.
+
+        Args:
+            response: Full JSON-RPC response envelope from the broker.
+            expected_id: Expected request ID.
+
+        Returns:
+            The ``result`` payload.
+
+        Raises:
+            MCPProtocolError: If the response is malformed or has a non-armor error.
+            MCPArmorViolation: If the error code indicates a policy violation.
+        """
+        if response.get("id") != expected_id:
+            raise MCPProtocolError(
+                f"Response ID mismatch: expected {expected_id}, got {response.get('id')}"
+            )
+
+        error = response.get("error")
+        if error is not None:
+            code = error.get("code") if isinstance(error, dict) else None
+            message = (
+                error.get("message", str(error)) if isinstance(error, dict) else str(error)
+            )
+            if code in ARMOR_ERROR_CODES:
+                raise MCPArmorViolation(f"Armor violation [{code}]: {message}")
+            raise MCPProtocolError(f"MCP server error [{code}]: {message}")
+
+        return response.get("result", {})  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -418,12 +401,12 @@ class MCPToolManager:
     """Tool manager that discovers and executes tools via MCP servers.
 
     Implements the ``ToolManager`` protocol from ``nerva.tools``. Manages
-    a pool of MCP server connections and enforces permission filtering,
-    sandboxing, and result size limits on every operation.
+    a pool of armored MCP server connections and enforces permission
+    filtering and result size limits on every operation. OS-level
+    sandboxing is delegated to the mcparmor broker.
 
     Args:
         servers: MCP server configurations to connect to.
-        armor: Sandboxing policy. ``None`` means no restrictions.
         pool_size: Maximum concurrent server connections in the pool.
     """
 
@@ -431,11 +414,9 @@ class MCPToolManager:
         self,
         servers: list[MCPServerConfig],
         *,
-        armor: ArmorPolicy | None = None,
         pool_size: int = DEFAULT_POOL_SIZE,
     ) -> None:
         self._servers = {cfg.name: cfg for cfg in servers}
-        self._armor = armor
         self._pool = MCPConnectionPool(max_size=pool_size)
         self._tool_server_map: dict[str, str] = {}
 
@@ -460,10 +441,11 @@ class MCPToolManager:
     async def call(
         self, tool: str, args: dict[str, object], ctx: ExecContext
     ) -> ToolResult:
-        """Execute a tool call with sandboxing and size limits.
+        """Execute a tool call with OS-level sandboxing and size limits.
 
-        Locates the server that owns the tool, validates permissions and
-        armor policy, executes the call, and truncates oversized output.
+        Locates the server that owns the tool, validates permissions,
+        executes the call through the mcparmor broker, and truncates
+        oversized output.
 
         Args:
             tool: Tool name to invoke.
@@ -485,11 +467,6 @@ class MCPToolManager:
         config = self._servers.get(server_name)
         if config is None:
             return _not_found_result(tool, start_ms)
-
-        if self._armor is not None:
-            violation = _check_armor(tool, args, self._armor)
-            if violation is not None:
-                return _armor_violation_result(tool, violation, start_ms)
 
         return await self._execute_tool(config, tool, args, start_ms)
 
@@ -515,7 +492,7 @@ class MCPToolManager:
         try:
             conn = await self._pool.get(config)
             tools = await conn.list_tools()
-        except (MCPProtocolError, OSError, asyncio.TimeoutError) as exc:
+        except (MCPProtocolError, ArmoredProcessError, OSError, asyncio.TimeoutError) as exc:
             _log.warning("Failed to discover tools from '%s': %s", config.name, exc)
             return []
 
@@ -533,7 +510,7 @@ class MCPToolManager:
         args: dict[str, object],
         start_ms: float,
     ) -> ToolResult:
-        """Run the tool call on the server and build the result.
+        """Run the tool call through the broker and build the result.
 
         Args:
             config: Server that owns the tool.
@@ -549,11 +526,12 @@ class MCPToolManager:
             raw_output = await conn.call_tool(tool, args)
         except asyncio.TimeoutError:
             return _timeout_result(tool, start_ms)
-        except (MCPProtocolError, OSError) as exc:
+        except MCPArmorViolation as exc:
+            return _armor_violation_result(tool, str(exc), start_ms)
+        except (MCPProtocolError, ArmoredProcessError, OSError) as exc:
             return _error_result(tool, str(exc), start_ms)
 
-        max_bytes = self._armor.max_result_bytes if self._armor else MAX_RESULT_BYTES
-        output = _truncate_result(raw_output, max_bytes)
+        output = _truncate_result(raw_output, config.max_result_bytes)
         duration_ms = time.monotonic() * 1000 - start_ms
 
         return ToolResult(
@@ -651,94 +629,6 @@ def _truncate_result(output: str, max_bytes: int) -> str:
     return truncated + TRUNCATION_SUFFIX
 
 
-def _check_armor(
-    tool_name: str, args: dict[str, object], armor: ArmorPolicy
-) -> str | None:
-    """Validate a tool call against the armor policy.
-
-    Inspects common argument patterns for filesystem paths and network
-    indicators. Returns a human-readable violation reason, or ``None``
-    if the call passes all checks.
-
-    Args:
-        tool_name: Name of the tool being called.
-        args: Arguments that will be passed to the tool.
-        armor: Active sandboxing policy.
-
-    Returns:
-        Violation description string, or ``None`` if permitted.
-    """
-    path_violation = _check_path_args(args, armor.allowed_paths)
-    if path_violation is not None:
-        return path_violation
-
-    if not armor.allow_network:
-        network_violation = _check_network_args(args)
-        if network_violation is not None:
-            return network_violation
-
-    return None
-
-
-def _check_path_args(args: dict[str, object], allowed_paths: frozenset[str]) -> str | None:
-    """Check whether any path-like arguments fall outside allowed paths.
-
-    Args:
-        args: Tool arguments to inspect.
-        allowed_paths: Set of allowed filesystem path prefixes.
-
-    Returns:
-        Violation message if a disallowed path is found, else ``None``.
-    """
-    if not allowed_paths:
-        # No paths allowed — check if any args look like paths
-        path_keys = {"path", "file", "filepath", "filename", "directory", "dir"}
-        for key in path_keys:
-            if key in args:
-                return f"Filesystem access denied: argument '{key}' not permitted"
-        return None
-
-    path_keys = {"path", "file", "filepath", "filename", "directory", "dir"}
-    for key in path_keys:
-        value = args.get(key)
-        if not isinstance(value, str):
-            continue
-        if not _is_path_allowed(value, allowed_paths):
-            return f"Path '{value}' is outside allowed paths"
-
-    return None
-
-
-def _is_path_allowed(path: str, allowed_paths: frozenset[str]) -> bool:
-    """Check if a path is under one of the allowed prefixes.
-
-    Args:
-        path: Filesystem path to validate.
-        allowed_paths: Set of allowed path prefixes.
-
-    Returns:
-        ``True`` if the path starts with at least one allowed prefix.
-    """
-    normalized = os.path.normpath(path)
-    return any(normalized.startswith(os.path.normpath(ap)) for ap in allowed_paths)
-
-
-def _check_network_args(args: dict[str, object]) -> str | None:
-    """Check whether arguments suggest a network call.
-
-    Args:
-        args: Tool arguments to inspect.
-
-    Returns:
-        Violation message if network indicators are found, else ``None``.
-    """
-    network_keys = {"url", "uri", "endpoint", "host", "hostname"}
-    for key in network_keys:
-        if key in args:
-            return f"Network access denied: argument '{key}' not permitted"
-    return None
-
-
 # ---------------------------------------------------------------------------
 # Result builders
 # ---------------------------------------------------------------------------
@@ -830,7 +720,7 @@ def _armor_violation_result(tool: str, violation: str, start_ms: float) -> ToolR
 
     Args:
         tool: Tool name that violated policy.
-        violation: Human-readable violation description.
+        violation: Human-readable violation description from the broker.
         start_ms: Call start timestamp in monotonic milliseconds.
 
     Returns:
@@ -857,7 +747,6 @@ async def _safe_close(conn: MCPConnection) -> None:
 
 __all__ = [
     "MCPServerConfig",
-    "ArmorPolicy",
     "MCPConnection",
     "MCPConnectionPool",
     "MCPToolManager",
