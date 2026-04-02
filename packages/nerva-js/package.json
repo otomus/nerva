@@ -1,6 +1,6 @@
 {
   "name": "@otomus/nerva",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Composable Agent Primitives — build your agent system, not the plumbing around it",
   "type": "module",
   "main": "./dist/index.js",

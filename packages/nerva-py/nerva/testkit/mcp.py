@@ -1,83 +1,195 @@
 """MCP Armor testkit integration.
 
-Wraps the otomus_mcp_armor ArmorTestHarness to provide Nerva-typed tool results
-and expectation-setting for MCP tool calls.
+Wraps ``mcparmor.ArmorTestHarness`` to provide Nerva-typed ``ToolResult``
+objects and expectation-setting for MCP tool calls. The harness runs
+the real mcparmor broker with a mock tool behind it, so Layer 1 policy
+enforcement is exercised in every test.
 
-This module is a placeholder — the full integration depends on the
-``otomus_mcp_armor`` package being available. When ``otomus_mcp_armor`` is not installed,
-importing this module will work but ``MCPTestHarness`` will raise
-``ImportError`` on instantiation.
+Requires ``otomus-mcp-armor>=0.3.1`` (``import mcparmor``).
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from nerva.tools import ToolResult, ToolStatus
+from nerva.tools.mcp import ARMOR_ERROR_CODES
+
 if TYPE_CHECKING:
-    pass
+    from mcparmor import ArmorTestHarness as _ArmorTestHarness, ToolCallResult
+
+
+def _to_nerva_result(tcr: ToolCallResult) -> ToolResult:
+    """Convert a mcparmor ``ToolCallResult`` into a Nerva ``ToolResult``.
+
+    Args:
+        tcr: The raw result from ``ArmorTestHarness.call_tool()``.
+
+    Returns:
+        A Nerva ``ToolResult`` with the appropriate status.
+    """
+    if tcr.blocked:
+        is_armor = tcr.error_code in ARMOR_ERROR_CODES
+        return ToolResult(
+            status=ToolStatus.PERMISSION_DENIED if is_armor else ToolStatus.ERROR,
+            error=tcr.error_message or "Blocked by armor policy",
+        )
+
+    text = tcr.text
+    return ToolResult(
+        status=ToolStatus.SUCCESS,
+        output=text or "",
+    )
+
+
+def _mcp_text_response(text: str) -> dict[str, object]:
+    """Build an MCP text content response payload.
+
+    Args:
+        text: The text string to wrap.
+
+    Returns:
+        MCP-formatted response with a single text content block.
+    """
+    return {"content": [{"type": "text", "text": text}]}
 
 
 class MCPTestHarness:
-    """Wrapper around otomus_mcp_armor's ArmorTestHarness for Nerva-style assertions.
+    """Nerva wrapper around ``mcparmor.ArmorTestHarness``.
 
-    Provides Nerva ``ToolResult`` objects and expectation-setting that
-    delegates to Armor's mock server internally.
+    Runs the real mcparmor broker with a mock tool server behind it.
+    Every ``call_tool`` exercises Layer 1 manifest enforcement, and
+    returns a Nerva ``ToolResult`` instead of a raw ``ToolCallResult``.
+
+    Usage::
+
+        async with MCPTestHarness(armor="./armor.json") as h:
+            h.set_mock_response("read_file", "file contents")
+            result = await h.call_tool("read_file", {"path": "/ok.txt"})
+            assert result.status == ToolStatus.SUCCESS
+
+    Args:
+        armor: Path to the ``armor.json`` manifest under test.
+        profile: Optional profile name override.
+        timeout: Read timeout in seconds for individual tool calls.
 
     Raises:
-        ImportError: If otomus_mcp_armor is not installed.
+        ImportError: If ``otomus-mcp-armor`` is not installed.
     """
 
-    def __init__(self, *, armor: str = "./armor.json") -> None:
+    def __init__(
+        self,
+        *,
+        armor: str = "./armor.json",
+        profile: str | None = None,
+        timeout: float = 10.0,
+    ) -> None:
         try:
-            import otomus_mcp_armor  # noqa: F401
+            import mcparmor  # noqa: F401
         except ImportError as exc:
             raise ImportError(
-                "otomus_mcp_armor is required for MCP testkit integration. "
+                "mcparmor is required for MCP testkit integration. "
                 "Install it with: pip install otomus-mcp-armor"
             ) from exc
-        self._armor_config = armor
-        self._harness: object = None
+        self._armor = armor
+        self._profile = profile
+        self._timeout = timeout
+        self._harness: _ArmorTestHarness | None = None
 
     async def __aenter__(self) -> MCPTestHarness:
-        """Start the MCP Armor test harness.
+        """Start the broker and mock tool server.
 
         Returns:
             Self for use as an async context manager.
         """
-        import otomus_mcp_armor
+        from mcparmor import ArmorTestHarness
 
-        self._harness = otomus_mcp_armor.ArmorTestHarness(armor=self._armor_config)
-        await self._harness.__aenter__()  # type: ignore[union-attr]
+        self._harness = ArmorTestHarness(
+            armor=self._armor,
+            profile=self._profile,
+            timeout=self._timeout,
+        )
+        await self._harness.__aenter__()
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        """Stop the MCP Armor test harness."""
+        """Stop the broker and mock tool server."""
         if self._harness is not None:
-            await self._harness.__aexit__(*args)  # type: ignore[union-attr]
+            await self._harness.__aexit__(*args)
+            self._harness = None
 
     async def call_tool(
-        self, tool_name: str, args: dict[str, object]
-    ) -> object:
-        """Call a tool through the MCP Armor harness.
+        self, name: str, args: dict[str, object] | None = None
+    ) -> ToolResult:
+        """Call a tool through the armored broker and return a Nerva result.
 
         Args:
-            tool_name: Name of the tool to call.
-            args: Arguments for the tool.
+            name: Tool name to invoke.
+            args: Optional arguments for the tool.
 
         Returns:
-            A Nerva-compatible ToolResult (shape depends on otomus_mcp_armor output).
-        """
-        if self._harness is None:
-            raise RuntimeError("MCPTestHarness must be used as an async context manager")
-        return await self._harness.call_tool(tool_name, args)  # type: ignore[union-attr]
+            A Nerva ``ToolResult`` — ``SUCCESS`` if the broker allowed the
+            call, ``PERMISSION_DENIED`` if an armor policy blocked it.
 
-    def expect_tool_response(self, tool_name: str, response: str) -> None:
-        """Set an expected response for a tool via Armor's mock server.
+        Raises:
+            RuntimeError: If the harness is not started.
+        """
+        harness = self._require_harness()
+        tcr = await harness.call_tool(name, args)
+        return _to_nerva_result(tcr)
+
+    def set_mock_response(
+        self, tool_name: str, text: str
+    ) -> None:
+        """Set a canned text response for a specific tool.
+
+        The mock server returns this as an MCP text content block
+        whenever the named tool is called.
 
         Args:
-            tool_name: Name of the tool.
-            response: The canned response to return.
+            tool_name: Tool name to match.
+            text: Text content to return.
+        """
+        harness = self._require_harness()
+        harness.mock_tool_response(
+            _mcp_text_response(text),
+            tool_name=tool_name,
+        )
+
+    def set_default_response(self, text: str) -> None:
+        """Set a default response for all tools that lack a specific mock.
+
+        Args:
+            text: Text content to return.
+        """
+        harness = self._require_harness()
+        harness.mock_tool_response(_mcp_text_response(text))
+
+    def set_tools(self, tools: list[dict[str, object]]) -> None:
+        """Set the tool definitions returned by ``tools/list``.
+
+        Args:
+            tools: MCP tool definition objects (name, description, inputSchema).
+        """
+        harness = self._require_harness()
+        harness.set_tools(tools)
+
+    # -- Private ------------------------------------------------------------
+
+    def _require_harness(self) -> _ArmorTestHarness:
+        """Return the active harness or raise if not started.
+
+        Returns:
+            The running ``ArmorTestHarness``.
+
+        Raises:
+            RuntimeError: If the harness is not started.
         """
         if self._harness is None:
-            raise RuntimeError("MCPTestHarness must be used as an async context manager")
-        self._harness.mock_tool_response(tool_name, response)  # type: ignore[union-attr]
+            raise RuntimeError(
+                "MCPTestHarness must be used as an async context manager"
+            )
+        return self._harness
+
+
+__all__ = ["MCPTestHarness"]
