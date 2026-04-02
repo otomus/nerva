@@ -2,14 +2,23 @@
 /**
  * Custom site title for Starlight that matches the nerva landing page style.
  * Renders "nerva" in JetBrains Mono bold #7FC8FF with a "Back to Home" link.
+ * Version is resolved from the latest git tag at build time.
  */
+import { execSync } from "node:child_process";
+
+let version = "dev";
+try {
+  version = execSync("git describe --tags --abbrev=0", { encoding: "utf-8" }).trim();
+} catch {
+  // No tags available (e.g. shallow clone without tags) — fall back to "dev"
+}
 ---
 
 <div class="site-title-wrapper">
   <a href="/nerva/" class="back-to-home" title="Back to Home">&larr;</a>
   <a href="/nerva/docs/" class="site-title">nerva</a>
   <span class="site-title-label">docs</span>
-  <span class="site-title-version">v0.2.1</span>
+  <span class="site-title-version">{version}</span>
 </div>
 
 <style>
