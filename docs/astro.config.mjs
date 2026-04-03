@@ -74,7 +74,6 @@ export default defineConfig({
         {
           label: "Ecosystem",
           items: [
-            { label: "NATS JetStream", slug: "ecosystem/nats" },
             { label: "mcp-armor", slug: "ecosystem/mcp-armor" },
             { label: "OpenTelemetry", slug: "ecosystem/opentelemetry" },
           ],

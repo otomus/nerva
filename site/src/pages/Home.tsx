@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import {
   ArrowRight, Github, Minus, Box, Layers,
-  Radio, ShieldCheck, Plug, Activity,
+  ShieldCheck, Plug, Activity,
   Check, X as XIcon, FlaskConical,
 } from "lucide-react";
 
@@ -198,11 +198,6 @@ function Problem() {
 
 const INFRA = [
   {
-    icon: Radio,
-    name: "NATS JetStream",
-    desc: "Distributed transport layer. Pub/sub messaging, key-value store, persistent streams. Production-grade at any scale.",
-  },
-  {
     icon: ShieldCheck,
     name: "mcp-armor",
     desc: "Tool sandboxing and security. Every MCP tool call runs through armor policies — no unaudited access to your systems.",
@@ -358,7 +353,6 @@ const ROWS: ComparisonRow[] = [
   { feature: "You own the server", nerva: "Yes", langgraph: "No", crewai: "No", autogen: "No", pydantic: "Partial" },
   { feature: "Multi-language", nerva: "4", langgraph: "Python", crewai: "Python", autogen: "Python", pydantic: "Python" },
   { feature: "Tool sandboxing", nerva: "mcp-armor", langgraph: "None", crewai: "None", autogen: "None", pydantic: "None" },
-  { feature: "Transport layer", nerva: "NATS", langgraph: "None", crewai: "None", autogen: "None", pydantic: "None" },
   { feature: "Memory tiers", nerva: "3-tier", langgraph: "Custom", crewai: "Short", autogen: "Chat", pydantic: "None" },
   { feature: "Policy engine", nerva: "YAML+code", langgraph: "Custom", crewai: "None", autogen: "None", pydantic: "None" },
   { feature: "Schema-driven", nerva: "TypeSpec", langgraph: "No", crewai: "No", autogen: "No", pydantic: "Pydantic" },
